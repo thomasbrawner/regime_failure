@@ -4,5 +4,4 @@ This repository will host several Python and R scripts, as well as IPython Noteb
 
 23 October 2014
 
-- `gwf_democracies.ipynb`: this notebook details variable construction for the proportion of democratic states in the geographic neighborhood surrounding authoritarian countries. Four definitions of neighborhood are used. The notebook can be viewed and downloaded [here](http://nbviewer.ipython.org/github/thomasbrawner/regime_failure/blob/master/gwf_democracies.ipynb).
-- `gwf_democracies.py`: this script executes variable construction as described in `gwf_democracies.ipynb`
+- `gwf_democracies.py`: this script executes variable construction for the proportion of democratic states in the geographic neighborhood surrounding authoritarian countries. A corresponding IPython Notebook with greater detail can be viewed [here](http://www.thomaswbrawner.com/democratic-neighborhoods.html)
