@@ -4,7 +4,7 @@
 ## purpose: calculate the proportion of democratic states within defined geographic neighborhoods
 ## author: thomas brawner
 ## date: 23 october 2014
-## note: for more detailed explanations, see accompanying 'gwf_democracies.ipynb'
+## note: see IPython Notebook for details at `http://www.thomaswbrawner.com/democratic-neighborhoods.html`
 ## ---------------------------------------------------------------------------------------------- ##
 ## ---------------------------------------------------------------------------------------------- ##
 
