@@ -1,6 +1,6 @@
 ## Regime failure
 
-This repository will host several Python and R scripts, as well as IPython Notebooks and RMarkdown documents, demonstrating data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
+This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
 25 October 2014
 
