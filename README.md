@@ -2,12 +2,9 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
-25 October 2014
+8 November 2015
 
-- `gwf_spatiotemporal_lags.py`: this script constructs lagged rates of authoritarian regime in time and geographic space. The corresponding IPython Notebook with details is [here](http://www.thomaswbrawner.com/spatiotemporal-lags.html). 
+- `generate_spatial_lags.py`: this script generates spatial lags and proportion of democratic states for given geographic neighborhoods and extends the events of interest for constructing the spatial lags. Greater explanation for the code can be found [here](http://www.thomaswbrawner.com/spatiotemporal-lags.html 'Spatial lags explanation').
 
-23 October 2014
-
-- `gwf_democracies.py`: this script executes variable construction for the proportion of democratic states in the geographic neighborhood surrounding authoritarian countries. A corresponding IPython Notebook with greater detail can be viewed [here](http://www.thomaswbrawner.com/democratic-neighborhoods.html).
 
 
