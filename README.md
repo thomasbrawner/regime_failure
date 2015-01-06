@@ -2,6 +2,10 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
+5 January 2015
+
+- `spatiotemporal_lags.py`: this Python script replaces earlier code for the construction of spatiotemporal lags of authoritarian regime failure. Greater explanation is available [here](http://www.thomaswbrawner.com/spatiotemporal-lags.html 'Spatial lags explanation').
+
 16 December 2014
 
 - `observed_case_simulation.R`: this script contains programs for simulated of predicted probabilities for logistic regression models and generalized additive models for binary dependent variables using the observed-case method. A short demonstration is available [here](http://www.thomaswbrawner.com/simulation.html 'Simulation demo').
