@@ -1,5 +1,21 @@
+## --------------------------------------------------------------------- ##
+## --------------------------------------------------------------------- ##
+## dissertation_programs.py
+## tb 21 jan 2015, last update 3 feb 2015
+## --------------------------------------------------------------------- ##
+## --------------------------------------------------------------------- ##
 
+import itertools
+import numpy as np
+import pandas as pd
+from math import floor
+import matplotlib.pyplot as plt
+import sklearn
+import statsmodels.api as sm
+import sys
 
+## --------------------------------------------------------------------- ##
+## analysis class
 
 class brada(object):
     '''
@@ -18,14 +34,12 @@ class brada(object):
         - dim: shape of the data frame
     '''
     def __init__(self, data_frame, dep_var, factors = None, constant = True):
-        data_frame.dropna(axis = 0, inplace = True)
+        data_frame = data_frame.dropna(axis = 0)
         data_frame.reset_index(drop = True, inplace = True)
-        import statsmodels.api as sm
         if factors != None:
-            from pandas import get_dummies, merge
             for f in factors:
-                dummy = get_dummies(data_frame[f], prefix = f)
-                data_frame = merge(data_frame, dummy, left_index = True, right_index = True, how = 'left')
+                dummy = pd.get_dummies(data_frame[f], prefix = f)
+                data_frame = pd.merge(data_frame, dummy, left_index = True, right_index = True, how = 'left')
                 data_frame.drop(f, axis = 1, inplace = True)
         features = [feat for feat in data_frame.columns.tolist() if feat not in [dep_var]]
         self.X = data_frame[features]
@@ -55,9 +69,6 @@ class brada(object):
             - bic: Bayesian information criterion
             - n: number of observations
         '''
-        import statsmodels.api as sm
-        import numpy as np
-        from pandas import DataFrame
         if method == 'ols':
             model = sm.OLS(self.y, self.X).fit()
             coefs = np.round(model.params, 3)
@@ -67,19 +78,14 @@ class brada(object):
             conf = np.round(model.conf_int(), 3)
             table = pd.concat([coefs, ses, pval, tval, conf], axis = 1)
             table.columns = ['estimate','std. error','p-value','t','0.025','0.975']
-            aic = round(model.aic, 3)
-            bic = round(model.bic, 3)
-            rsq = round(model.rsquared, 3)
-            lik = round(model.llf, 3)
-            rmse = round(np.sqrt(model.mse_resid), 3)
-            obs = int(model.nobs)
             out = {'table' : table,
-                   'rmse' : rmse,
-                   'rsq' : rsq,
-                   'loglik' : lik,
-                   'aic' : aic,
-                   'bic' : bic,
-                   'n' : obs}
+                   'estimator' : method,
+                   'rmse' : round(np.sqrt(model.mse_resid), 3),
+                   'rsq' : round(model.rsquared, 3),
+                   'loglik' : round(model.llf, 3),
+                   'aic' : round(model.aic, 3),
+                   'bic' : round(model.bic, 3),
+                   'n' : int(model.nobs)}
             return out
         elif method == 'logit':
             model = sm.GLM(self.y, self.X, family = sm.families.Binomial()).fit()
@@ -90,17 +96,13 @@ class brada(object):
             conf = np.round(model.conf_int(), 3)
             table = pd.concat([coefs, ses, pval, tval, conf], axis = 1)
             table.columns = ['estimate','std. error','p-value','t','0.025','0.975']
-            aic = round(model.aic, 3)
-            bic = round(model.bic, 3)
-            lik = round(model.llf, 3)
-            obs = int(model.nobs)
-            dev = round(model.deviance, 3)
             out = {'table' : table,
-                   'deviance' : dev,
-                   'loglik' : lik,
-                   'aic' : aic,
-                   'bic' : bic,
-                   'n' : obs}
+                   'estimator' : method,
+                   'deviance' : round(model.deviance, 3),
+                   'loglik' : round(model.llf, 3),
+                   'aic' : round(model.aic, 3),
+                   'bic' : round(model.bic, 3),
+                   'n' : int(model.nobs)}
             return out
         else:
             print 'method must be one of ["logit","ols"]'
@@ -124,43 +126,39 @@ class brada(object):
             - pandas data frame with three columns: 'val0' = predicted probabilities for first value in set_values; 
               'val1' = predicted probabilities for second value; 'fd' = first difference (val0 - val1).
         '''
-        import statsmodels.api as sm
-        import numpy as np
-        import pandas as pd
+        out = []
         if seed:
             np.random.seed(seed)
         if method == 'logit':
             model = sm.GLM(self.y, self.X, family = sm.families.Binomial()).fit()
             coefs = model.params
             vcov = model.cov_params()
-            x = np.random.multivariate_normal(coefs, vcov, nsims)
-            out = []
+            try:
+                x = np.random.multivariate_normal(coefs, vcov, nsims)
+            except:
+                print 'Simulations not executed for provided model'
+                return None
             for val in set_values:
                 self.X[set_var] = val
                 linpreds = np.dot(self.X, x.T)
                 probs = 1 / (1 + np.exp(-1 * linpreds))
-                out.append(pd.DataFrame(probs).describe(percentiles = [.50]).ix[['50%']])
-            out = pd.concat(out, axis = 0).T
-            out.columns = ['val0','val1']
-            out['fd'] = out['val0'] - out['val1']
-            return out
+                out.append(probs)
         elif method == 'ols':
             model = sm.OLS(self.y, self.X).fit()
             coefs = model.params
             vcov = model.cov_params()
             x = np.random.multivariate_normal(coefs, vcov, nsims)
-            out = []
             for val in set_values:
                 self.X[set_var] = val
-                linpreds = np.dot(self.X, x.T)
-                out.append(pd.DataFrame(linpreds).describe(percentiles = [.50]).ix[['50%']])
-            out = pd.concat(out, axis = 0).T
-            out.columns = ['val0','val1']
-            out['fd'] = out['val0'] - out['val1']
-            return out
+                out.append(np.dot(self.X, x.T))
         else:
             print 'method must be one of ["logit","ols"]'
             return None
+        out.append(out[0] - out[1])
+        out = [pd.DataFrame(x).mean(axis = 0) for x in out]
+        out = pd.concat(out, axis = 1)
+        out.columns = ['x0','x1','fd']
+        return out
 
     def classify(self, method = 'logit', folds = 5, seed = None, beta = [0.5]):
         '''
@@ -182,51 +180,43 @@ class brada(object):
             - roc: data frame of false positive rate, true positive rate, and thresholds, for making ROC plots
             - auroc: area under the ROC curve
         '''
-        from sklearn.cross_validation import StratifiedKFold
-        from sklearn import metrics
-        from pandas import DataFrame
-        splits = StratifiedKFold(self.y, n_folds = folds, shuffle = True, random_state = seed)
+        splits = sklearn.StratifiedKFold(self.y, n_folds = folds, shuffle = True, random_state = seed)
         out = []
         for train, test in splits:
             x_train, x_test, y_train, y_test = self.X.ix[train], self.X.ix[test], self.y.ix[train], self.y.ix[test]
             if method == 'logit':
-                from sklearn.linear_model import LogisticRegression
-                model = LogisticRegression().fit(x_train, y_train)
+                model = sklearn.linear_model.LogisticRegression().fit(x_train, y_train)
             elif method == 'random_forest':
-                from sklearn.ensemble import RandomForestClassifier
-                model = RandomForestClassifier(n_estimators = 1000, random_state = seed).fit(x_train, y_train)
+                model = sklearn.ensemble.RandomForestClassifier(n_estimators = 1000, random_state = seed).fit(x_train, y_train)
             elif method == 'svm':
-                from sklearn.svm import SVC
-                model = SVC(kernel = 'rbf', probability = True, random_state = seed).fit(x_train, y_train)
+                model = sklearn.svm.SVC(kernel = 'rbf', probability = True, random_state = seed).fit(x_train, y_train)
             elif method == 'naive_bayes':
-                from sklearn.naive_bayes import BernoulliNB
-                model = BernoulliNB().fit(x_train, y_train)
+                model = sklearn.naive_bayes.BernoulliNB().fit(x_train, y_train)
             elif method == 'boosting':
-                from sklearn.ensemble import AdaBoostClassifier
-                model = AdaBoostClassifier(n_estimators = 100, random_state = seed).fit(x_train, y_train)
+                model = sklearn.ensemble.AdaBoostClassifier(n_estimators = 100, random_state = seed).fit(x_train, y_train)
             else:
                 print 'method must be one of ["logit","random_forest","svm","naive_bayes","boosting"]'
                 return None
             preds = zip(test.tolist(), y_test.tolist(), model.predict(x_test).tolist(), model.predict_proba(x_test)[:,1:].flatten().tolist())
             out += preds
-        out = DataFrame(out)
+        out = pd.DataFrame(out)
         out.columns = ['index','observed','classified','probability']
         out.set_index('index', inplace = True)
         out.sort_index(inplace = True)
-        acc = metrics.accuracy_score(out['observed'], out['classified'], normalize = True)
-        confusion = metrics.confusion_matrix(out['observed'], out['classified'])
-        f1 = metrics.f1_score(out['observed'], out['classified'])
+        acc = sklearn.metrics.accuracy_score(out['observed'], out['classified'], normalize = True)
+        confusion = sklearn.metrics.confusion_matrix(out['observed'], out['classified'])
+        f1 = sklearn.metrics.f1_score(out['observed'], out['classified'])
         fbeta_list = []
         for b in beta:
-            fbeta_list += [(b, metrics.fbeta_score(out['observed'], out['classified'], beta = b, average = 'weighted'))]
-        fbeta = DataFrame(fbeta_list)
+            fbeta_list += [(b, sklearn.metrics.fbeta_score(out['observed'], out['classified'], beta = b, average = 'weighted'))]
+        fbeta = pd.DataFrame(fbeta_list)
         fbeta.columns = ['beta','score']
-        precision = metrics.precision_score(out['observed'], out['classified'])
-        recall = metrics.recall_score(out['observed'], out['classified'])
-        roc = metrics.roc_curve(out['observed'], out['probability'])
-        roc = DataFrame([roc[0], roc[1], roc[2]]).T
+        precision = sklearn.metrics.precision_score(out['observed'], out['classified'])
+        recall = sklearn.metrics.recall_score(out['observed'], out['classified'])
+        roc = sklearn.metrics.roc_curve(out['observed'], out['probability'])
+        roc = pd.DataFrame([roc[0], roc[1], roc[2]]).T
         roc.columns = ['fpr','tpr','threshold']
-        auroc = metrics.roc_auc_score(out['observed'], out['probability'])
+        auroc = sklearn.metrics.roc_auc_score(out['observed'], out['probability'])
         out_dict = {'predictions' : out,
                     'accuracy' : round(acc, 3),
                     'f1' : round(f1, 3),
@@ -238,3 +228,193 @@ class brada(object):
                     'auroc' : round(auroc, 3)}
         return out_dict
             
+## --------------------------------------------------------------------- ##
+## --------------------------------------------------------------------- ##
+
+## complementary functions
+
+## --------------------------------------------------------------------- ##
+## --------------------------------------------------------------------- ##
+
+def round_down_any(x, base):
+    '''
+    Round down to nearest <base>.
+    '''
+    round_down = np.vectorize(floor)
+    x = np.array((x / base), dtype = float)
+    out = round_down(x)
+    return pd.Series(out * base).astype(int)
+    
+## --------------------------------------------------------------------- ##
+
+def log_negative(vec):
+    '''
+    Transform highly kurtotic distributions centered about zero.
+    '''
+    return np.where(vec < 0, np.log((vec * -1) + 1) * -1, np.log(vec + 1))
+
+## --------------------------------------------------------------------- ##
+
+def format_data(gwf = True, dep_var = 'failure', control = True, lag = None):
+    '''
+    Given the directory setup of the data files ('data/...'), merge and manipulate files for analysis.
+    Notably, this function generates the dependent variable, loads the corresponding spatial lags, and 
+    transforms and generates independent variables used in the analysis.
+    '''
+    gwf = pd.read_table('data/GWFtscs.txt')
+    if dep_var == 'failure':
+        gwf = gwf[['cowcode','year','gwf_duration','gwf_fail','gwf_party','gwf_personal','gwf_military','gwf_monarch']]
+        gwf.columns = ['cowcode','year','duration','failure','party','personal','military','monarchy']
+    elif dep_var == 'coerce':
+        gwf = gwf[['cowcode','year','gwf_duration','gwf_fail','gwf_fail_type','gwf_party','gwf_personal','gwf_military','gwf_monarch']]
+        gwf['coerce'] = ((gwf['gwf_fail_type'] == 4) | (gwf['gwf_fail_type'] == 5) | (gwf['gwf_fail_type'] == 6)).astype(int)
+        gwf.drop(['gwf_fail','gwf_fail_type'], axis = 1, inplace = True)
+        gwf.columns = ['cowcode','year','duration','party','personal','military','monarchy','coerce']
+    elif dep_var == 'auttrans':
+        gwf = gwf[['cowcode','year','gwf_duration','gwf_fail','gwf_fail_subsregime','gwf_party','gwf_personal','gwf_military','gwf_monarch']]
+        gwf['auttrans'] = (gwf['gwf_fail_subsregime'] == 2).astype(int)
+        gwf.drop(['gwf_fail','gwf_fail_subsregime'], axis = 1, inplace = True)
+        gwf.columns = ['cowcode','year','duration','party','personal','military','monarchy','auttrans']
+    elif dep_var == 'demtrans':
+        gwf = gwf[['cowcode','year','gwf_duration','gwf_fail','gwf_fail_subsregime','gwf_party','gwf_personal','gwf_military','gwf_monarch']]
+        gwf['demtrans'] = (gwf['gwf_fail_subsregime'] == 1).astype(int)
+        gwf.drop(['gwf_fail','gwf_fail_subsregime'], axis = 1, inplace = True)
+        gwf.columns = ['cowcode','year','duration','party','personal','military','monarchy','demtrans']
+    else:
+        print 'Do not recognize this dependent variable choice'
+        return None
+    if lag:
+        lag = pd.read_table('data/' + lag, sep = ',')
+        gwf = pd.merge(gwf, lag, on = ['cowcode','year'], how = 'left')
+    con = pd.read_table('data/control_variables.txt', sep = ',')
+    gwf = pd.merge(gwf, con, on = ['cowcode','year'], how = 'left')
+    gwf['duration'] = np.log(gwf['duration'])
+    gwf['duration_military'] = gwf['duration'] * gwf['military']
+    gwf['duration_personal'] = gwf['duration'] * gwf['personal']
+    gwf['duration_party'] = gwf['duration'] * gwf['party']
+    gwf['resource'] = np.log(gwf['resource'] + 1)
+    gwf['growth'] = log_negative(gwf['growth'])
+    gwf['population'] = np.log(gwf['population'])
+    gwf['openness'] = np.log(gwf['openness'])
+    gwf['two_year'] = round_down_any(gwf['year'], base = 2)
+    gwf['three_year'] = round_down_any(gwf['year'], base = 3)
+    gwf['lustrum'] = round_down_any(gwf['year'], base = 5)
+    gwf['decade'] = round_down_any(gwf['year'], base = 10)
+    return gwf
+    
+## --------------------------------------------------------------------- ##
+
+def reg_table(estimates):
+    '''
+    Format the ['table'] value returned by estimator method. Zip estimates and standard errors along with 
+    feature names and indicators of statistical significance at $p$ <= 0.05. The output is Nx2 data frame
+    indexed by feature name. Multiple reg_tables are merged by tex_reg_table().
+    '''
+    est = estimates['table']['estimate'].tolist()
+    filler = [''] * len(est)
+    se = estimates['table']['std. error'].tolist()
+    star = np.where(np.absolute(np.divide(est, se)) >= 1.96, '*', '').tolist()
+    names = estimates['table'].index.tolist()
+    names_se = [name + '_StdError' for name in names]
+    iters = [iter(names), iter(names_se)]
+    names = list(it.next() for it in itertools.cycle(iters))
+    iters = [iter(est), iter(se)]
+    est = list(it.next() for it in itertools.cycle(iters))
+    iters = [iter(star), iter(filler)]
+    stars = list(it.next() for it in itertools.cycle(iters))
+    out = pd.DataFrame(zip(est, stars))
+    out.columns = ['est','stars']
+    out.index = names
+    return out 
+
+## --------------------------------------------------------------------- ##
+
+def reg_summary(estimates):
+    '''
+    Format the regression summary values returned by the estimator method, contingent on the method used. A
+    data frame is returned and appended to the corresponding table of estimates and standard errors from reg_table()
+    using tex_reg_table().
+    '''
+    if estimates['estimator'] == 'logit':
+        names = [r'\hline','$N$','Deviance','Log-likelihood','AIC','BIC']
+        values = ['',estimates['n'],estimates['deviance'],estimates['loglik'],estimates['aic'],estimates['bic']]
+        return pd.DataFrame(zip(values, [''] * len(names)), index = names)
+    elif estimates['estimator'] == 'ols':
+        names = [r'\hline','$N$','RMSE','$R^2$','Log-likelihood','AIC','BIC']
+        values = ['',estimates['n'],estimates['rmse'],estimates['rsq'],estimates['loglik'],estimates['aic'],estimates['bic']]
+        return pd.DataFrame(zip(values, [''] * len(names)), index = names)
+    else:
+        return None
+
+## --------------------------------------------------------------------- ##
+
+def tex_reg_table(reg_tables, reg_summaries, factors = None, file_name = ''):
+    '''
+    Provide list of the outputs from reg_table() and reg_summary(). Also provide list of factor names, i.e., 
+    the substring corresponding to levels of a factor variable (e.g., 'year' for 'year_XXXX'). Finally, 
+    provide the desired prefix for the file name, as the body of the tex table will be written to file
+    to put in the final touches.
+    '''
+    out_table = reg_tables.pop(0)
+    for table in reg_tables:
+        out_table = pd.merge(out_table, table, left_index = True, right_index = True, how = 'outer')
+    index_list = out_table.index.tolist()
+    if factors != None:
+        for f in factors:
+            f = f + '_'
+            index_list = [x for x in index_list if f not in x]
+    out_table = out_table.ix[index_list]
+    index_list = out_table.index.tolist()
+    index_list = ['' if '_StdError' in x else x for x in index_list]
+    out_table.index = index_list
+
+    out_summary = reg_summaries.pop(0)
+    for summary in reg_summaries:
+        out_summary = pd.merge(out_summary, summary, left_index = True, right_index = True, how = 'outer')
+
+    out_table.columns = range(out_table.shape[1])
+    out_summary.columns = range(out_summary.shape[1])
+    out_table = pd.concat([out_table, out_summary])
+    
+    est_cols = [x for x in out_table.columns if x%2 == 0]   # get estimate columns
+    str_cols = [x for x in out_table.columns if x%2 != 0]   # stars
+    out_table[est_cols] = out_table[est_cols].fillna('.')
+    out_table[str_cols] = out_table[str_cols].replace(np.nan, '')
+    out_table.columns = ['c' + str(x) for x in out_table.columns.tolist()]
+    for col in out_table.columns:
+        idx = out_table.columns.get_loc(col)
+        out_table.insert(idx, '&' + str(idx), '&')
+    out_table.insert(out_table.columns.get_loc(out_table.columns[-1]) + 1, r'\\', r'\\')
+    out_table.ix['\hline'] = ''
+    with open(file_name + '.txt', 'w+') as f:
+        f.write(out_table.to_string())
+        f.close()
+
+## --------------------------------------------------------------------- ##
+
+def plot_fd(simulations, file_name):
+    '''
+    Plot the distribution of mean predicted values across observations for each simulation for simulation() method. 
+    Plot the first differences between the paired values provided to the set_values argument of that 
+    method. Provide the file_name for the pdf output.
+    '''
+    try:
+        fig = plt.figure(figsize = (12,8))
+        ax1 = plt.subplot2grid((2,5), (0,0), colspan = 2, rowspan = 1)
+        ax2 = plt.subplot2grid((2,5), (1,0), colspan = 2, rowspan = 1, sharex = ax1)
+        ax3 = plt.subplot2grid((2,5), (0,2), colspan = 3, rowspan = 2)
+        ax1.hist(simulations['x0'], 15, normed = False, facecolor = 'k', alpha = 0.4)
+        ax1.set_xlabel(r'Predicted Probability ($x_0$)', labelpad = 10)
+        ax2.hist(simulations['x1'], 15, normed = False, facecolor = 'k', alpha = 0.4)
+        ax2.set_xlabel(r'Predicted Probability ($x_1$)', labelpad = 10)
+        ax3.hist(simulations['fd'], 30, normed = False, facecolor = 'k', alpha = 0.4)
+        ax3.set_xlabel(r'First Differences ($x_0 - x_1$)', labelpad = 10)
+        plt.tight_layout()
+        fig.savefig(file_name + '.pdf')
+        plt.close()
+    except:
+        print 'No simulations passed to plotter'
+        pass
+
+## --------------------------------------------------------------------- ##
+## --------------------------------------------------------------------- ##
