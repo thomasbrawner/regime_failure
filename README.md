@@ -2,6 +2,10 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
+3 February 2015
+
+- `dissertation_programs.py`: updates to programs for dissertation analysis. Include complementary functions for plotting first differences in simulated quantities of interest, for generating LaTeX tables from estimation output, and other functions for data wrangling and transformation.
+
 22 January 2015
 
 - `dissertation_programs.py`: this Python script generates a class from a *pandas* data frame suitable for data analysis. The class has methods for parameter estimation, simulation of quantities of interest, and classification for binary dependent variable models. 
