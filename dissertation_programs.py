@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from math import floor
 import matplotlib.pyplot as plt
+import seaborn as sns
 import sklearn
 import statsmodels.api as sm
 import sys
@@ -386,8 +387,11 @@ def tex_reg_table(reg_tables, reg_summaries, factors = None, file_name = ''):
         out_table.insert(idx, '&' + str(idx), '&')
     out_table.insert(out_table.columns.get_loc(out_table.columns[-1]) + 1, r'\\', r'\\')
     out_table.ix['\hline'] = ''
-    with open(file_name + '.txt', 'w+') as f:
-        f.write(out_table.to_string())
+    columns = [r'',r'&',r'\multicolumn{2}{c}{Model 1}',r'&',r'\multicolumn{2}{c}{Model 2}',r'&',r'\multicolumn{2}{c}{Model 3}',r'&',r'\multicolumn{2}{c}{Model 4}',r'&',r'\multicolumn{2}{c}{Model 5}',r'\\']
+    with open(file_name + '.tex', 'w+') as f:
+        f.write(' '.join(columns) + '\n')
+        f.write('\\hline \n')
+        f.write(out_table.to_string(header = False))
         f.close()
 
 ## --------------------------------------------------------------------- ##
@@ -416,5 +420,62 @@ def plot_fd(simulations, file_name):
         print 'No simulations passed to plotter'
         pass
 
+## --------------------------------------------------------------------- ##
+
+def period_simulator(X, y, coef, periods, lag_periods, lag_var, set_values):
+    '''
+    Simulated first differences using for every period, focusing on interaction term between 
+    period dummy and the spatial lag. Takes the simulated coefficients, the matrix of predictors, 
+    the vector of outcomes, the column names for the period dummies, the column names for the 
+    period-lag interaction terms, and counterfactual values for the spatial lag at which to evaluate
+    the first differences. Simulation strategy is the same as described in the simulation method above.
+    '''
+    simulations = {}
+    for period, lag_period in zip(periods, lag_periods):
+        non_periods = [x for x in periods if x != period]
+        non_lag_periods = [x for x in lag_periods if x != lag_period]
+        for non_period in non_periods:
+            X[non_period] = 0
+        for non_lag_period in non_lag_periods:
+            X[non_lag_period] = 0
+        X[period] = 1
+        out = []
+        for value in set_values:
+            X[lag_var] = value
+            X[lag_period] = X[lag_var].multiply(X[period], axis = 'index')
+            linpreds = np.dot(X, coef.T)
+            probs = 1 / (1 + np.exp(-1 * linpreds))
+            out.append(probs)
+        fd = (out[0] - out[1]).mean(axis = 0) # average fd across obs for each simulated beta
+        simulations[period] = fd
+    return pd.DataFrame(simulations)
+
+## --------------------------------------------------------------------- ##
+
+def plot_period_simulations(simulations, periods, file_name, id_vars, var_name):
+    '''
+    Plot the simulated first differences for each five-year period. Takes the matrix of predicted 
+    probabilities from the period_simulator(), the column names for the period dummies, and 
+    the file name to be given to pdf output, which is a seaborn boxplot of probabilities for 
+    every time period.
+    '''
+    sns.set_style('whitegrid')
+    melted_sims = pd.melt(simulations, id_vars = id_vars, var_name = var_name, value_name = 'First Differences')
+    melted_sims[var_name] = melted_sims[var_name].str.split('_').str.get(-1)    # years only, omit prefix
+    melted_sims = melted_sims.replace({'Lag' : {'demtrans' : 'Democratic',
+                                                'auttrans' : 'Autocratic',
+                                                'coerce' : 'Coerce',
+                                                'failure' : 'Failure'}})
+    labs = melted_sims[var_name].unique().tolist()
+    labs = ['' if i%2 == 0 else x for i, x in enumerate(labs)]    # use every other period label for aesthetic purposes
+    plt.figure(figsize = (12, 8))
+    sns.set_style('whitegrid')
+    f = sns.factorplot('Lustrum', col = 'Lag', y = 'First Differences', data = melted_sims, col_wrap = 2, kind = 'box')
+    f.set_xlabels('')
+    g = f.facet_axis(1,1)
+    g.set_xticklabels(labels = labs)
+    plt.savefig(file_name + '.pdf')
+    plt.close()
+    
 ## --------------------------------------------------------------------- ##
 ## --------------------------------------------------------------------- ##
