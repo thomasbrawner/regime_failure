@@ -1,3 +1,23 @@
+## ----------------------------------------------------------------------------------- ##
+## ----------------------------------------------------------------------------------- ##
+## country_codes.py
+## apply correlates of war country codes to country names in pandas data frame
+## tb 5 dec 2014
+## ----------------------------------------------------------------------------------- ##
+## ----------------------------------------------------------------------------------- ##
+
+def generate_cowcode(data_frame, country_column, dictionary):
+    '''
+    Generate new column in data frame, 'cowcode', given column of country names and 
+    the country-COW codes dictionary. Add new countries/spellings as needed. Return
+    the data frame.
+    '''
+    data_frame['cowcode'] = data_frame[country_column]
+    data_frame.replace({'cowcode' : dictionary}, inplace = True)
+    return data_frame
+
+## ----------------------------------------------------------------------------------- ##
+## ----------------------------------------------------------------------------------- ##
 
 dictionary_cowcodes = {
     'Afghanistan':'700',
@@ -387,10 +407,5 @@ dictionary_cowcodes = {
     'Zimbabwe':'552',
 }
 
-
-def generate_cowcode(data_frame, country_column, dictionary):
-    data_frame['cowcode'] = data_frame[country_column]
-    data_frame.replace({'cowcode' : dictionary}, inplace = True)
-    return data_frame
-
-    
+## ----------------------------------------------------------------------------------- ##
+## ----------------------------------------------------------------------------------- ##
