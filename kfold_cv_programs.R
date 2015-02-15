@@ -2,10 +2,17 @@
 # -------------------------------------------------------------------- #
 # kfold_cv_programs.R
 # functions to perform k-fold cross-validation for classification models
-# 22 nov 2014, thomas brawner
+# tb 22 nov 2014, last update 15 feb 2015
 # -------------------------------------------------------------------- #
 # -------------------------------------------------------------------- #
 
+require(caret)
+require(ggplot2)
+require(graphics)
+require(grDevices)
+require(grid)
+require(pROC)
+require(wq)
 
 # -------------------------------------------------------------------- #
 # -------------------------------------------------------------------- #
@@ -23,7 +30,6 @@
 
 kfoldcv = function(formula = NULL, data, depvar, k, method = c('krls','logit','logit.gam','randomForest'), 
                    covariates = NULL, seed = NULL){
-  require(caret)
   if(any(is.na(data))){
     stop('There are NA observations in the data frame. Please remove them.')
   }
@@ -103,18 +109,14 @@ itercv = function(iterations = 10, formula, data, depvar, k, method, seed = NULL
 # -------------------------------------------------------------------- #
 # predictive performance plot
 # arguments: 
-# -- x: data frame returned by kfoldcv()
+# -- x: data frame returned by kfoldcv() or itercv()$predictions
 # -- print_auc: should the AUC be printed?
 # -- print_ci_auc: should the 95% confidence interval for the AUC be printed?
 # values: 
 # -- ROC curve
+# -- boxplots, distributions of predicted probabilities by class
 
-plot_kfoldcv = function(x, print_auc = TRUE, print_ci_auc = TRUE, distribution = TRUE){
-  require(ggplot2)
-  require(graphics)
-  require(grDevices)
-  require(grid)
-  require(pROC)    
+plot_kfoldcv = function(x, print_auc = TRUE, print_ci_auc = TRUE, distribution = TRUE){    
   
   curve = roc(as.factor(x[,1]), x[,2])
   auroc_lb = paste('AUC[l] == ', format(round(ci.auc(roc(as.factor(x[,1]), x[,2]))[1], 3), nsmall = 3))
@@ -138,7 +140,7 @@ plot_kfoldcv = function(x, print_auc = TRUE, print_ci_auc = TRUE, distribution =
   
   if(print_ci_auc){
     p = p + annotate('text', x = .8, y = .24, label = auroc_ub, parse = TRUE, size = 3.5) + 
-      annotate('text', x = .8, y = .08, label = auroc_lb, parse = TRUE, size = 3.5)
+            annotate('text', x = .8, y = .08, label = auroc_lb, parse = TRUE, size = 3.5)
   }
   
   x[,1] = as.factor(x[,1])
