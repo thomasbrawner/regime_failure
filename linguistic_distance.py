@@ -5,7 +5,7 @@
 ## ---------------------------------------------------------------------- ##
 ## linguistic_distance.py
 ## [1] scrape statutory and de facto languages from ethnologue
-## [2] binary connectivity for intersecting languages among dyads
+## [2] binary connectivity for intersecting languages in country dyads
 ## author: thomas brawner
 ## date: 5 december 2014
 ## input: country_codes.py
@@ -151,6 +151,10 @@ dist.rename(columns = {'x' : 'language1', 'y' : 'language2'}, inplace = True)
 ## establish connectivity 
 
 def language_connection(a, b):
+    '''
+    Strip white space from country language lists, evaluate if there is 
+    intersection, return boolean as integer, where a 1 indicates connectivity.
+    '''
     a = [i.strip() for i in a.split(',')]
     b = [i.strip() for i in b.split(',')]
     return len(set(a).intersection(b)) > 0
