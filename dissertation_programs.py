@@ -96,7 +96,7 @@ class brada(object):
             tval = np.round(model.tvalues, 3)
             conf = np.round(model.conf_int(), 3)
             table = pd.concat([coefs, ses, pval, tval, conf], axis = 1)
-            table.columns = ['estimate','std. error','p-value','t','0.025','0.975']
+            table.columns = ['estimate','std. error','p-value','z','0.025','0.975']
             out = {'table' : table,
                    'estimator' : method,
                    'deviance' : round(model.deviance, 3),
