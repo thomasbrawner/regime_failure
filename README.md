@@ -2,6 +2,10 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
+15 February 2015
+
+- `dissertation_analysis_ch1a.py`: generates regression tables and plots of simulated first differences demonstrating the estimated effect of spatiotemporal lags of various categories of authoritarian regime failure on authoritarian regime stability. 
+
 3 February 2015
 
 - `dissertation_programs.py`: updates to programs for dissertation analysis. Include complementary functions for plotting first differences in simulated quantities of interest, for generating LaTeX tables from estimation output, and other functions for data wrangling and transformation.
