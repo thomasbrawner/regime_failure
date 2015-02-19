@@ -1,10 +1,11 @@
 ## --------------------------------------------------------------------- ##
 ## --------------------------------------------------------------------- ##
 ## dissertation_programs.py
-## tb 21 jan 2015, last update 3 feb 2015
+## tb 21 jan 2015, last update 19 feb 2015
 ## --------------------------------------------------------------------- ##
 ## --------------------------------------------------------------------- ##
 
+import glob
 import itertools
 import numpy as np
 import pandas as pd
@@ -12,6 +13,7 @@ from math import floor
 import matplotlib.pyplot as plt
 import seaborn as sns
 import sklearn
+from sklearn import cross_validation, linear_model
 import statsmodels.api as sm
 import sys
 
@@ -181,12 +183,12 @@ class brada(object):
             - roc: data frame of false positive rate, true positive rate, and thresholds, for making ROC plots
             - auroc: area under the ROC curve
         '''
-        splits = sklearn.StratifiedKFold(self.y, n_folds = folds, shuffle = True, random_state = seed)
+        splits = cross_validation.StratifiedKFold(self.y, n_folds = folds, shuffle = True, random_state = seed)
         out = []
         for train, test in splits:
             x_train, x_test, y_train, y_test = self.X.ix[train], self.X.ix[test], self.y.ix[train], self.y.ix[test]
             if method == 'logit':
-                model = sklearn.linear_model.LogisticRegression().fit(x_train, y_train)
+                model = linear_model.LogisticRegression().fit(x_train, y_train)
             elif method == 'random_forest':
                 model = sklearn.ensemble.RandomForestClassifier(n_estimators = 1000, random_state = seed).fit(x_train, y_train)
             elif method == 'svm':
@@ -476,6 +478,91 @@ def plot_period_simulations(simulations, periods, file_name, id_vars, var_name):
     g.set_xticklabels(labels = labs)
     plt.savefig(file_name + '.pdf')
     plt.close()
-    
+
+## --------------------------------------------------------------------- ##
+
+def evaluate_classifier(n, da_instance, spec_no):
+    '''
+    Perform 5-fold cross-validation and extract performance metrics for specifications.
+    '''
+    output_list = [da_instance.classify() for i in range(n)]
+    auroc = {}
+    auroc[spec_no] = [x['auroc'] for x in output_list]
+    f = {}
+    f[spec_no] = [x['f1'] for x in output_list]
+    return {'auroc' : auroc,
+            'f' : f}
+
+## --------------------------------------------------------------------- ##
+
+def output_classifier_metrics(file_name_root, base, test, test2 = None, metrics = ['auroc']):
+    '''
+    Merge restricted and unrestricted specifications, melt the merged data frame, and 
+    write to file for plotting. The plotter should be in this function, but seaborn functions
+    do not work well with Macs, so the heavy lifting is done on Mac, the plotting on Windows.
+    Optionally take a second test set, where time-varying effect of spatial lag is tested. 
+    '''
+    for metric in metrics:
+        base_metrics = []
+        for model in base:
+            base_metrics.append(pd.DataFrame(model[metric]))
+        base_metrics = pd.concat(base_metrics, axis = 1)
+        base_metrics['type'] = 'restricted'
+
+        test_metrics = []
+        for model in test:
+            test_metrics.append(pd.DataFrame(model[metric]))
+        test_metrics = pd.concat(test_metrics, axis = 1)
+        test_metrics['type'] = 'full'
+
+        if test2:
+            test2_metrics = []
+            for model in test2:
+                test2_metrics.append(pd.DataFrame(model[metric]))
+            test2_metrics = pd.concat(test2_metrics, axis = 1)
+            test2_metrics['type'] = 'interaction'
+
+            metric_data = pd.concat([base_metrics, test_metrics, test2_metrics], axis = 0)
+        else:
+            metric_data = pd.concat([base_metrics, test_metrics], axis = 0)
+
+        metric_data = pd.melt(metric_data, id_vars = 'type', var_name = 'model', value_name = metric)
+        metric_data.rename(columns = {'type' : ''}, axis = 1, inplace = True)
+        metric_data.to_csv('figures/cross_val/' + metric + '/' + file_name_root + '.txt', sep = ',')
+
+## --------------------------------------------------------------------- ##
+        
+def plot_classifier_metrics(path, extension, metric):
+    '''
+    Extract all the data files with classification metrics for given path, produce the 
+    plots comparing restricted and unrestricted specifications. 
+    '''
+    file_names = glob.glob(path + '*' + extension)
+    for name in file_names:
+        data = pd.read_csv(name, sep = ',', index_col = 0)
+        data.columns = ['','model',metric]
+
+        name = name[:name.find(extension)]
+        name = name + '.pdf'
+
+        if 'lustrum' in name:
+            plt.figure(figsize = (12,8))
+            sns.set_style('whitegrid')
+            sns.set_palette(['0.30','0.50','0.70'])
+            f = sns.factorplot('model', hue = '', y = metric, data = data, kind = 'box', hue_order = ['restricted','full','interaction'])
+            f.set_xlabels('')
+            f.set_ylabels('')
+            plt.savefig(name)
+            plt.close()
+        else:
+            plt.figure(figsize = (12,8))
+            sns.set_style('whitegrid')
+            sns.set_palette(['0.35','0.65'])
+            f = sns.factorplot('model', hue = '', y = metric, data = data, kind = 'box', hue_order = ['restricted','full'])
+            f.set_xlabels('')
+            f.set_ylabels('')
+            plt.savefig(name)
+            plt.close()
+        
 ## --------------------------------------------------------------------- ##
 ## --------------------------------------------------------------------- ##
