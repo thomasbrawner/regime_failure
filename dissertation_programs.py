@@ -13,7 +13,7 @@ from math import floor
 import matplotlib.pyplot as plt
 import seaborn as sns
 import sklearn
-from sklearn import cross_validation, linear_model
+from sklearn import cross_validation, linear_model, ensemble, svm, metrics
 import statsmodels.api as sm
 import sys
 
@@ -168,7 +168,7 @@ class brada(object):
         Classification method for instance of brada. Uses a number of classifiers provided in the sklearn module
         to make out-of-sample forecasts in k-fold cross-validation. 
         Arguments: 
-            - method: one of ['logit','random_forest','svm','naive_bayes','boosting']
+            - method: one of ['logit','random_forest','svm','lasso','boosting']
             - folds: number of folds used in cross-validation (default = 5)
             - seed: optional, seed value for splitting the data into folds, for replicability
             - beta: list, values of beta at which to evaluate the F-beta score
@@ -190,15 +190,15 @@ class brada(object):
             if method == 'logit':
                 model = linear_model.LogisticRegression().fit(x_train, y_train)
             elif method == 'random_forest':
-                model = sklearn.ensemble.RandomForestClassifier(n_estimators = 1000, random_state = seed).fit(x_train, y_train)
+                model = ensemble.RandomForestClassifier(n_estimators = 1000, random_state = seed).fit(x_train, y_train)
             elif method == 'svm':
-                model = sklearn.svm.SVC(kernel = 'rbf', probability = True, random_state = seed).fit(x_train, y_train)
-            elif method == 'naive_bayes':
-                model = sklearn.naive_bayes.BernoulliNB().fit(x_train, y_train)
+                model = svm.SVC(kernel = 'rbf', probability = True, random_state = seed).fit(x_train, y_train)
+            elif method == 'lasso':
+                model = linear_model.LogisticRegression(penalty = 'l1').fit(x_train, y_train)
             elif method == 'boosting':
-                model = sklearn.ensemble.AdaBoostClassifier(n_estimators = 100, random_state = seed).fit(x_train, y_train)
+                model = ensemble.AdaBoostClassifier(n_estimators = 100, random_state = seed).fit(x_train, y_train)
             else:
-                print 'method must be one of ["logit","random_forest","svm","naive_bayes","boosting"]'
+                print 'method must be one of ["logit","random_forest","svm","lasso","boosting"]'
                 return None
             preds = zip(test.tolist(), y_test.tolist(), model.predict(x_test).tolist(), model.predict_proba(x_test)[:,1:].flatten().tolist())
             out += preds
@@ -206,29 +206,23 @@ class brada(object):
         out.columns = ['index','observed','classified','probability']
         out.set_index('index', inplace = True)
         out.sort_index(inplace = True)
-        acc = sklearn.metrics.accuracy_score(out['observed'], out['classified'], normalize = True)
-        confusion = sklearn.metrics.confusion_matrix(out['observed'], out['classified'])
-        f1 = sklearn.metrics.f1_score(out['observed'], out['classified'])
         fbeta_list = []
         for b in beta:
-            fbeta_list += [(b, sklearn.metrics.fbeta_score(out['observed'], out['classified'], beta = b, average = 'weighted'))]
+            fbeta_list += [(b, metrics.fbeta_score(out['observed'], out['classified'], beta = b, average = 'weighted'))]
         fbeta = pd.DataFrame(fbeta_list)
         fbeta.columns = ['beta','score']
-        precision = sklearn.metrics.precision_score(out['observed'], out['classified'])
-        recall = sklearn.metrics.recall_score(out['observed'], out['classified'])
-        roc = sklearn.metrics.roc_curve(out['observed'], out['probability'])
+        roc = metrics.roc_curve(out['observed'], out['probability'])
         roc = pd.DataFrame([roc[0], roc[1], roc[2]]).T
         roc.columns = ['fpr','tpr','threshold']
-        auroc = sklearn.metrics.roc_auc_score(out['observed'], out['probability'])
         out_dict = {'predictions' : out,
-                    'accuracy' : round(acc, 3),
-                    'f1' : round(f1, 3),
+                    'accuracy' : metrics.accuracy_score(out['observed'], out['classified'], normalize = True),
+                    'f1' : metrics.f1_score(out['observed'], out['classified']),
                     'fbeta' : fbeta,
-                    'precision' : round(precision, 3),
-                    'recall' : round(recall, 3),
-                    'confusion' : confusion,
+                    'precision' : metrics.precision_score(out['observed'], out['classified']),
+                    'recall' : metrics.recall_score(out['observed'], out['classified']),
+                    'confusion' : metrics.confusion_matrix(out['observed'], out['classified']),
                     'roc' : roc,
-                    'auroc' : round(auroc, 3)}
+                    'auroc' : metrics.roc_auc_score(out['observed'], out['probability'])}
         return out_dict
             
 ## --------------------------------------------------------------------- ##
@@ -481,88 +475,85 @@ def plot_period_simulations(simulations, periods, file_name, id_vars, var_name):
 
 ## --------------------------------------------------------------------- ##
 
-def evaluate_classifier(n, da_instance, spec_no):
+def add_period_interaction(brada, period, lag_var):
     '''
-    Perform 5-fold cross-validation and extract performance metrics for specifications.
+    Create dummy matrix and generate interaction terms between provided variable and each dummy variable in the matrix.
+    Returns a modified instance of the brada object for data analysis. For use with the predictor_performance() function
+    for specifying predictor matrix for interactions between 5-year periods and spatial lags.
     '''
-    output_list = [da_instance.classify() for i in range(n)]
-    auroc = {}
-    auroc[spec_no] = [x['auroc'] for x in output_list]
-    f = {}
-    f[spec_no] = [x['f1'] for x in output_list]
-    return {'auroc' : auroc,
-            'f' : f}
-
+    lustrum_dummies = pd.get_dummies(brada.X[period], prefix = period)
+    brada.X = pd.merge(brada.X, lustrum_dummies, left_index = True, right_index = True, how = 'left')
+    brada.X = brada.X.drop(period, axis = 1)
+    periods = [x for x in brada.X.columns.tolist() if period in x]
+    for col in periods:
+        brada.X['lag_' + col] = brada.X[lag_var].multiply(brada.X[col], axis = 'index')
+    return brada
+    
 ## --------------------------------------------------------------------- ##
 
-def output_classifier_metrics(file_name_root, base, test, test2 = None, metrics = ['auroc']):
+def predictor_performance(dframe, dep_var, period, restricted, full = {}, interaction = True, metric = ['auroc'], method = 'logit', folds = 3):
     '''
-    Merge restricted and unrestricted specifications, melt the merged data frame, and 
-    write to file for plotting. The plotter should be in this function, but seaborn functions
-    do not work well with Macs, so the heavy lifting is done on Mac, the plotting on Windows.
-    Optionally take a second test set, where time-varying effect of spatial lag is tested. 
+    Evaluate the performance of classifiers, comparing restricted to unrestricted specifications. Provide list of metrics and the classification
+    method. Returns list of dictionaries, where each dictionary has model information and performance output. 
     '''
-    for metric in metrics:
-        base_metrics = []
-        for model in base:
-            base_metrics.append(pd.DataFrame(model[metric]))
-        base_metrics = pd.concat(base_metrics, axis = 1)
-        base_metrics['type'] = 'restricted'
-
-        test_metrics = []
-        for model in test:
-            test_metrics.append(pd.DataFrame(model[metric]))
-        test_metrics = pd.concat(test_metrics, axis = 1)
-        test_metrics['type'] = 'full'
-
-        if test2:
-            test2_metrics = []
-            for model in test2:
-                test2_metrics.append(pd.DataFrame(model[metric]))
-            test2_metrics = pd.concat(test2_metrics, axis = 1)
-            test2_metrics['type'] = 'interaction'
-
-            metric_data = pd.concat([base_metrics, test_metrics, test2_metrics], axis = 0)
-        else:
-            metric_data = pd.concat([base_metrics, test_metrics], axis = 0)
-
-        metric_data = pd.melt(metric_data, id_vars = 'type', var_name = 'model', value_name = metric)
-        metric_data.rename(columns = {'type' : ''}, axis = 1, inplace = True)
-        metric_data.to_csv('figures/cross_val/' + metric + '/' + file_name_root + '.txt', sep = ',')
-
-## --------------------------------------------------------------------- ##
+    performance_out = []
+    for idx in range(len(restricted)):
+        factor_list = [x for x in ['two_year','lustrum','region','cowcode'] if x in restricted[idx]]
         
-def plot_classifier_metrics(path, extension, metric):
-    '''
-    Extract all the data files with classification metrics for given path, produce the 
-    plots comparing restricted and unrestricted specifications. 
-    '''
-    file_names = glob.glob(path + '*' + extension)
-    for name in file_names:
-        data = pd.read_csv(name, sep = ',', index_col = 0)
-        data.columns = ['','model',metric]
+        # create data objects for analysis
+        dat_rest = diss.brada(dframe[restricted[idx]], dep_var = dep_var, factors = factor_list, constant = False)
+        dat_alt = {spec : diss.brada(dframe[full[spec][idx]], dep_var = dep_var, factors = factor_list, constant = False) for spec in full}
 
-        name = name[:name.find(extension)]
-        name = name + '.pdf'
+        # run classifier on each specification
+        seed = random.randint(1, 1000000)
+        classifiers = {'restricted' : dat_rest.classify(method = method, folds = folds, seed = seed),
+                       'failure' : dat_alt['lagfail'].classify(method = method, folds = folds, seed = seed),
+                       'coerce' : dat_alt['lagcoer'].classify(method = method, folds = folds, seed = seed),
+                       'autocratic' : dat_alt['lagauto'].classify(method = method, folds = folds, seed = seed),
+                       'democratic' : dat_alt['lagdemo'].classify(method = method, folds = folds, seed = seed)}
 
-        if 'lustrum' in name:
-            plt.figure(figsize = (12,8))
-            sns.set_style('whitegrid')
-            sns.set_palette(['0.30','0.50','0.70'])
-            f = sns.factorplot('model', hue = '', y = metric, data = data, kind = 'box', hue_order = ['restricted','full','interaction'])
-            f.set_xlabels('')
-            f.set_ylabels('')
-            plt.savefig(name)
-            plt.close()
-        else:
-            plt.figure(figsize = (12,8))
-            sns.set_style('whitegrid')
-            sns.set_palette(['0.35','0.65'])
-            f = sns.factorplot('model', hue = '', y = metric, data = data, kind = 'box', hue_order = ['restricted','full'])
-            f.set_xlabels('')
-            f.set_ylabels('')
-            plt.savefig(name)
-            plt.close()
-        
+        # model information
+        performance = {'dependent' : dep_var,
+                       'model' : idx,
+                       'period' : period}
+
+        # add performance metrics for each model
+        for m in metric:
+            for key, value in classifiers.iteritems():
+                out_name = m + '_' + key
+                performance[out_name] = value[m]
+        performance_out.append(performance)
+
+    # if 5-year period and interaction needed, also check performance with lag-period interaction
+    if period == 'lustrum' and interaction:
+        for idx in range(len(restricted)):
+            factor_list = [x for x in ['region','cowcode'] if x in restricted[idx]]
+
+            # create data objects for analysis, new factor list
+            dat_rest = diss.brada(dframe[restricted[idx]], dep_var = dep_var, factors = factor_list, constant = False)
+            dat_alt = {spec : diss.brada(dframe[full[spec][idx]], dep_var = dep_var, factors = factor_list, constant = False) for spec in full}
+            
+            # run classifier on each specification, with interactions
+            seed = random.randint(1, 1000000)
+            classifiers = {'restricted' : dat_rest.classify(method = method, folds = folds, seed = seed),
+                           'failure' : add_period_interaction(dat_alt['lagfail'], period, 'lag_failure').classify(method = method, folds = folds, seed = seed),
+                           'coerce' : add_period_interaction(dat_alt['lagcoer'], period, 'lag_coerce').classify(method = method, folds = folds, seed = seed),
+                           'autocratic' : add_period_interaction(dat_alt['lagauto'], period, 'lag_auttrans').classify(method = method, folds = folds, seed = seed),
+                           'democratic' : add_period_interaction(dat_alt['lagdemo'], period, 'lag_demtrans').classify(method = method, folds = folds, seed = seed)}
+
+            # model information
+            performance = {'dependent' : dep_var,
+                           'model' : idx,
+                           'period' : 'lag_lustrum'}
+
+            # add performance metrics for each model
+            for m in metric:
+                for key, value in classifiers.iteritems():
+                    out_name = m + '_' + key
+                    performance[out_name] = value[m]
+            performance_out.append(performance)
+                
+    return performance_out
+      
 ## --------------------------------------------------------------------- ##
 ## --------------------------------------------------------------------- ##
