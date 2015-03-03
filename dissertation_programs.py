@@ -554,6 +554,132 @@ def predictor_performance(dframe, dep_var, period, restricted, full = {}, intera
             performance_out.append(performance)
                 
     return performance_out
-      
+
+## --------------------------------------------------------------------- ##
+
+def resample_data(df):
+    '''
+    Sample observations in the data frame with replacement. The default returns a 
+    data frame of the same dimensions. This function is used to resample the indices of 
+    the design matrix in classifier_predicted_probabilities().
+    '''
+    indices = np.random.choice(df.index, size = df.shape[0], replace = True)
+    return df.ix[indices]
+
+## --------------------------------------------------------------------- ##
+
+def generate_dummies(df, unit, interaction = False, conditioning_var = None, conditioning_prefix = None):
+    '''
+    Generate dummy matrix for given factor, optionally generating an interaction term for each level of the factor
+    and a given conditioning variable. Used by classifier_predicted_probabilities().
+    '''
+    dummies = pd.get_dummies(df[unit], prefix = unit)
+    df2 = pd.merge(df, dummies, left_index = True, right_index = True, how = 'left')
+    df2 = df2.drop(unit, axis = 1)
+    dummy_names = [x for x in df2.columns.tolist() if unit in x]
+    if interaction:
+        if not conditioning_var:
+            print 'Please supply a conditioning variable to generate interaction with the unit indicator'
+            return None
+        if not conditioning_prefix:
+            print 'Please supply a prefix for the interaction term'
+            return None
+        for col in dummy_names:
+            df2[conditioning_prefix + col] = df2[conditioning_var].multiply(df2[col], axis = 'index')
+    return df2
+
+## --------------------------------------------------------------------- ##
+
+def period_classifier_probs_v1(X, classifier, periods, lag_var, set_values):
+    '''
+    This version evaluates predicted probabilities for the random forest classifier. It does not
+    require specifying a multiplicative interaction between the spatial lag and the period indicator.
+    This function is executed in classifier_predicted_probabilities() when interaction is False.
+    '''
+    out = []
+    for period in periods:
+        non_periods = [x for x in periods if x != period]
+        for non_period in non_periods:
+            X[non_period] = 0
+        X[period] = 1
+        for value in set_values:
+            X[lag_var] = value
+            probs = classifier.predict_proba(X)[:,1:]
+            out.append({'period' : period[(period.find('_') + 1):],
+                        'lag_value' : value,
+                        'mean_prob' : np.mean(probs),
+                        'median_prob' : np.median(probs)})
+    return out
+
+## --------------------------------------------------------------------- ##
+
+def period_classifier_probs_v2(X, classifier, periods, lag_periods, lag_var, set_values):
+    '''
+    This version evaluates predicted probabilities for the classifiers. It specifies the multiplicative 
+    interaction between the sptail lag and the period indicator. This function is executed in 
+    classifier_predicted_probabilities() when interaction is True.
+    '''
+    out = []
+    for period, lag_period in zip(periods, lag_periods):
+        non_periods = [x for x in periods if x != period]
+        non_lag_periods = [x for x in lag_periods if x != lag_period]
+        for non_period in non_periods:
+            X[non_period] = 0
+        for non_lag_period in non_lag_periods:
+            X[non_lag_period] = 0
+        X[period] = 1
+        for value in set_values:
+            X[lag_var] = value
+            X[lag_period] = X[lag_var].multiply(X[period], axis = 'index')
+            probs = classifier.predict_proba(X)[:,1:]
+            out.append({'period' : period[(period.find('_') + 1):],
+                        'lag_value' : value,
+                        'mean_prob' : np.mean(probs),
+                        'median_prob' : np.median(probs)})
+    return out
+
+## --------------------------------------------------------------------- ##
+
+def classifier_predicted_probabilities(spec, dep_var, unit, lag_var, factors, interaction = True, method = 'logit'):
+    '''
+    Generate bootstrap predicted probabilities for sklearn classifiers. Return data frame with indicators for period and 100 mean and median 
+    predicted probabilities for each period across counterfactual values of the provided spatiotemporal lag.
+    '''
+    data = format_data(dep_var = dep_var, lag = 'spatial_lags_' + dep_var + '.txt')
+    data = data[spec]
+    if interaction:
+        data = generate_dummies(data, unit, interaction, conditioning_var = lag_var, conditioning_prefix = 'lag_')
+    else:
+        data = generate_dummies(data, unit)
+
+    lag_range = data[lag_var].describe().ix[['25%','75%']]
+    lag_range = np.linspace(lag_range[0], lag_range[1], num = 10)
+
+    periods = [x for x in data.columns.tolist() if unit in x]
+    if interaction:
+        lag_periods = [x for x in data.columns.tolist() if 'lag_' + unit in x]
+
+    dd = brada(data, dep_var = dep_var, factors = factors, constant = False)
+
+    if method == 'logit':
+        classifier = linear_model.LogisticRegression().fit(dd.X, dd.y)
+    elif method == 'lasso':
+        classifier = linear_model.LogisticRegression(penalty = 'l1').fit(dd.X, dd.y)
+    elif method == 'random_forest':
+        classifier = ensemble.RandomForestClassifier(n_estimators = 1000).fit(dd.X, dd.y)
+    else:
+        print 'classifier method not supported'
+        return None
+
+    output = []
+    for i in range(100):
+        X = resample_data(dd.X)
+        if interaction:
+            output += period_classifier_probs_v2(X, classifier, periods, lag_periods, lag_var, lag_range)
+        else:
+            output += period_classifier_probs_v1(X, classifier, periods, lag_var, lag_range)
+
+    return pd.DataFrame(output)
+          
 ## --------------------------------------------------------------------- ##
 ## --------------------------------------------------------------------- ##
