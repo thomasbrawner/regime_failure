@@ -4,8 +4,8 @@ This repository will host several Python and R scripts for data management and a
 
 2 March 2015
 
--`dissertation_analysis_ch2_performance.R`: this R script produces facet plots for comparing cross-validation performance for restricted and unrestricted models.
--`dissertation_analysis_ch2a.py`: cross-validation performance for logistic regression with, alternately, L1 and L2 regularization, support vector machines, and random forests. Produces AUROC and recall performance for all combinations of dependent variable, spatiotemporal lag, and controls specification, and compares restricted to unrestricted models, where the restriction is the spatiotemporal lag. 
+- `dissertation_analysis_ch2_performance.R`: this R script produces facet plots for comparing cross-validation performance for restricted and unrestricted models.
+- `dissertation_analysis_ch2a.py`: cross-validation performance for logistic regression with, alternately, L1 and L2 regularization, support vector machines, and random forests. Produces AUROC and recall performance for all combinations of dependent variable, spatiotemporal lag, and controls specification, and compares restricted to unrestricted models, where the restriction is the spatiotemporal lag. 
 
 15 February 2015
 
