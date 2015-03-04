@@ -46,6 +46,9 @@ metric_melt = function(data, metric){
 	return(data)
 }
 
+## ------------------------------------------------------------------------------- ##
+## delta performance data between restricted and unrestricted specifications
+
 metric_melt_delta = function(data, metric){
 	metric_columns = grep(metric, names(data), value = TRUE)
 	restricted_column = paste(metric, 'restricted', sep = '_')
@@ -63,7 +66,7 @@ metric_melt_delta = function(data, metric){
 }
 
 ## ------------------------------------------------------------------------------- ##
-## function to output the faceted performance plots 
+## function to output the faceted performance plots for each dependent variable
 
 performance_plots = function(data, classifier, metric = 'auroc'){
 	dep_vars = c('failure','coerce','auttrans','demtrans')
@@ -124,12 +127,10 @@ performance_plots(data, 'logit', 'recall')
 ## ------------------------------------------------------------------------------- ##
 ## svm
 
-data = read.csv('classification/performance_svm2.csv')
+data = read.csv('classification/performance_svm.csv')
 data = fix_labels(data, interaction = TRUE)
 performance_plots(data, 'svm')
 performance_plots(data, 'svm', 'recall')
-
-stop()
 
 ## ------------------------------------------------------------------------------- ##
 ## random forest
@@ -137,6 +138,7 @@ stop()
 data = read.csv('classification/performance_random_forest.csv')
 data = fix_labels(data, interaction = TRUE)
 performance_plots(data, 'random_forest')
+performance_plots(data, 'random_forest', 'recall')
 
 ## ------------------------------------------------------------------------------- ##
 ## ------------------------------------------------------------------------------- ##
