@@ -74,7 +74,7 @@ performance_plots = function(data, classifier, metric = 'auroc'){
 		df1 = metric_melt(df, metric)
 		
 		# plot AUROC by restricted vs full
-		pdf(paste0('classification/performance_figures/performance_auroc_', classifier, '_', dep_var, '.pdf'))
+		pdf(paste0('classification/performance_figures/performance_', metric, '_', classifier, '_', dep_var, '.pdf'))
 		p = ggplot(df1, aes_string('lag', metric)) + 
 			   	   geom_boxplot() +
 			   	   facet_grid(period ~ model) + 
@@ -90,7 +90,7 @@ performance_plots = function(data, classifier, metric = 'auroc'){
 		df2 = metric_melt_delta(df, metric)
 		
 		# plot delta 
-		pdf(paste0('classification/performance_figures/performance_auroc_', classifier, '_', dep_var, '_delta.pdf'))
+		pdf(paste0('classification/performance_figures/performance_', metric, '_', classifier, '_', dep_var, '_delta.pdf'))
 		p = ggplot(df2, aes_string('lag', metric)) + 
 			   	   geom_boxplot() + 
 			   	   geom_hline(yintercept = 0, linetype = 2) + 
@@ -111,6 +111,7 @@ performance_plots = function(data, classifier, metric = 'auroc'){
 data = read.csv('classification/performance_lasso.csv')
 data = fix_labels(data, interaction = TRUE)
 performance_plots(data, 'lasso')
+performance_plots(data, 'lasso', 'recall')
 
 ## ------------------------------------------------------------------------------- ##
 ## logit
@@ -118,13 +119,17 @@ performance_plots(data, 'lasso')
 data = read.csv('classification/performance_logit.csv')
 data = fix_labels(data, interaction = TRUE)
 performance_plots(data, 'logit')
+performance_plots(data, 'logit', 'recall')
 
 ## ------------------------------------------------------------------------------- ##
 ## svm
 
-data = read.csv('classification/performance_svm.csv')
+data = read.csv('classification/performance_svm2.csv')
 data = fix_labels(data, interaction = TRUE)
 performance_plots(data, 'svm')
+performance_plots(data, 'svm', 'recall')
+
+stop()
 
 ## ------------------------------------------------------------------------------- ##
 ## random forest
