@@ -4,7 +4,7 @@ This repository will host several Python and R scripts for data management and a
 
 5 March 2015
 
-- `dissertation_analysis_bootstrap.R`: plot the predicted probabilities to see marginal effects of the spatiotemporal lag as it varies over 5-year periods. 
+- `dissertation_analysis_bootstrap.R`: plot the predicted probabilities to see marginal effects of the spatiotemporal lag varying with respect to 5-year periods from 1950 to 2005. 
 - `dissertation_analysis_c2b.py`: Python script for obtaining bootstrapped predicted probabilities across counterfactual values of the spatiotemporal lag from the best performers among the classification algorithms. 
 
 2 March 2015
