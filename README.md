@@ -2,6 +2,11 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
+5 March 2015
+
+- `dissertation_analysis_bootstrap.R`: plot the predicted probabilities to see marginal effects of the spatiotemporal lag as it varies over 5-year periods. 
+- `dissertation_analysis_c2b.py`: Python script for obtaining bootstrapped predicted probabilities across counterfactual values of the spatiotemporal lag from the best performers among the classification algorithms. 
+
 2 March 2015
 
 - `dissertation_analysis_ch2_performance.R`: this R script produces facet plots for comparing cross-validation performance for restricted and unrestricted models.
