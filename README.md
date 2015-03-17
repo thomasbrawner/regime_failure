@@ -2,6 +2,11 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
+16 March 2015
+
+- `dissertation_analysis_ch1_diffusion`: plot predicted probabilities and first differences obtained from the democratic diffusion model.
+- `dissertation_analysis_ch1c.py`: models demonstrating democratic diffusion. 
+
 5 March 2015
 
 - `dissertation_analysis_bootstrap.R`: plot the predicted probabilities to see marginal effects of the spatiotemporal lag varying with respect to 5-year periods from 1950 to 2005. 
