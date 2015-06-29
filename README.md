@@ -2,40 +2,11 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
-16 March 2015
+29 June 2015
 
-- `dissertation_analysis_ch1_diffusion`: plot predicted probabilities and first differences obtained from the democratic diffusion model.
-- `dissertation_analysis_ch1c.py`: models demonstrating democratic diffusion. 
-
-5 March 2015
-
-- `dissertation_analysis_bootstrap.R`: plot the predicted probabilities to see marginal effects of the spatiotemporal lag varying with respect to 5-year periods from 1950 to 2005. 
-- `dissertation_analysis_c2b.py`: Python script for obtaining bootstrapped predicted probabilities across counterfactual values of the spatiotemporal lag from the best performers among the classification algorithms. 
-
-2 March 2015
-
-- `dissertation_analysis_ch2_performance.R`: this R script produces facet plots for comparing cross-validation performance for restricted and unrestricted models.
-- `dissertation_analysis_ch2a.py`: cross-validation performance for logistic regression with, alternately, L1 and L2 regularization, support vector machines, and random forests. Produces AUROC and recall performance for all combinations of dependent variable, spatiotemporal lag, and controls specification, and compares restricted to unrestricted models, where the restriction is the spatiotemporal lag. 
-
-15 February 2015
-
-- `dissertation_analysis_ch1b.py`: generates plots of simulated first differences for a shift in the value of spatiotemporal lags conditional on five-year time periods over time. Relies on `dissertation_programs.py`. 
-
-15 February 2015
-
-- `dissertation_analysis_ch1a.py`: generates regression tables and plots of simulated first differences demonstrating the estimated effect of spatiotemporal lags of various categories of authoritarian regime failure on authoritarian regime stability. Relies on the programs in `dissertation_programs.py`.
-
-3 February 2015
-
-- `dissertation_programs.py`: updates to programs for dissertation analysis. Include complementary functions for plotting first differences in simulated quantities of interest, for generating LaTeX tables from estimation output, and other functions for data wrangling and transformation.
-
-22 January 2015
-
-- `dissertation_programs.py`: this Python script generates a class from a *pandas* data frame suitable for data analysis. The class has methods for parameter estimation, simulation of quantities of interest, and classification for binary dependent variable models. 
-
-5 January 2015
-
-- `spatiotemporal_lags.py`: this Python script replaces earlier code for the construction of spatiotemporal lags of authoritarian regime failure. Greater explanation is available [here](http://www.thomaswbrawner.com/spatiotemporal-lags.html 'Spatial lags explanation').
+- `dissertation_programs.py`: Programs for estimating and presenting results for dissertation chapter 1 analysis.
+- `spatiotemporal_lags.py`: Code to generate new lags data, updated to include all weights and principal components.
+- Old scripts removed
 
 16 December 2014
 
