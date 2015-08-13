@@ -2,7 +2,7 @@
 ## Separation plots for visualizing classification performance for binary dependent variables
 ## Citation: Greenhill, Ward, and Sacks (2011)
 ## Link to paper: http://tinyurl.com/qc52uf4 
-## tb 29 jun 2015
+## tb 29 jun 2015, update 13 aug 2015
 
 ## -------------------------------------------------------------------------------------------- ##
 
@@ -17,8 +17,8 @@ def separation_plot(y_true, y_pred):
     
     Arguments
     ---------
-        - y_true - vector of observed class labels
-        - y_pred - vector of predicted probabilities
+        - y_true : vector of observed class labels
+        - y_pred : vector of predicted probabilities
     """
     
     # set up data frame of observed class and predicted probabilities
@@ -37,11 +37,10 @@ def separation_plot(y_true, y_pred):
     plt.figure(figsize = (12, 2.5))
     plt.tick_params(axis = 'x', which = 'both', bottom = 'off', top = 'off', labelbottom = 'off')
     ax = plt.gca()
-    ax.set_xlim([evals[0], evals[-1]])
+    ax.set_xlim([(evals[0] - 1), (evals[-1] + 1)])
     ax.set_ylim([0, 1])
     ax.plot(pdata['yhat'], '-')
     for i in evals:
         ax.axvline(x = i, linewidth = 0.15, color = 'r', linestyle = '-')
-    plt.show()
 
 ## -------------------------------------------------------------------------------------------- ##
