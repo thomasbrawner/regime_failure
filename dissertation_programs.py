@@ -1,7 +1,7 @@
 ## ------------------------------------------------------------------------- ##
 ## ------------------------------------------------------------------------- ##
 ## dissertation_programs.py
-## tb 15 jun 2015
+## tb 15 jun 2015, last update 13 aug 2015
 ## ------------------------------------------------------------------------- ##
 ## ------------------------------------------------------------------------- ##
 
@@ -48,11 +48,15 @@ class DataAnalysis(object):
                 dummy = pd.get_dummies(dframe[f], prefix = f)
                 dframe = pd.merge(dframe, dummy, left_index = True, right_index = True, how = 'left')
                 dframe = dframe.drop(f, axis = 1)
-        
+
         self.y = dframe.pop(depvar).values
         self.X = StandardScaler().fit_transform(dframe.values) 
         self.features = dframe.columns 
         self.factors = factors
+
+        if 'year' in self.features.tolist():
+            var_idx = self.features.tolist().index('year')
+            self.X[:, var_idx] = dframe['year'].values 
 
 
     def logit_optimal_c(self):
@@ -73,7 +77,7 @@ class DataAnalysis(object):
     def plot_regularization_path(self):
         """
         Plot coefficient magnitudes over regularization strength. Parameters taken 
-        from logit_optimal_c(). Prints the paths. 
+        from logit_optimal_c(). Plots the paths. 
         """
         logit = LogisticRegression(fit_intercept = True)
 
@@ -143,6 +147,15 @@ class DataAnalysis(object):
         
 
     def logit_first_differences(self, variable):
+        """
+        Plot histogram of differences in predicted probability of event given 
+        shift from 25th to 75th percentile in specified variable, all other 
+        features kept at their observed values, using the boostrap coefficient
+        estimates.  
+
+        Arguments:
+            - variable : variable 
+        """
         
         edata = self.X.copy()
         
@@ -173,6 +186,37 @@ class DataAnalysis(object):
         plt.annotate(r'$\mu =$ %s' % fd_mu, xy = (0.8, 0.9), xycoords = 'axes fraction', size = 18)
         plt.xlabel(r'$\Delta$ Pr$(Y = 1) ~|~ x_0 \rightarrow x_1$', fontsize = 18, labelpad = 15)
         plt.ylabel('')
-    
+
+
+    def sequential_forecaster(self, classifier, year):
+        """
+        Train classifier up to year, then predict for year.
+
+        Arguments:
+            - classifier: optimized classifier from grid search 
+            - year: dict, variable : value
+            
+        Values:
+            - array [
+                test_y: observed values for forecasted year,
+                preds: forecast probabilities of event 
+                ]
+        """
+        # train, test split on year
+        var_idx = self.features.tolist().index(year.keys()[0])
+        mask = (self.X[:, var_idx] < year.values()[0])
+        train_x, train_y = self.X[mask], self.y[mask]
+        mask2 = (self.X[:, var_idx] == year.values()[0])
+        test_x, test_y = self.X[mask2], self.y[mask2]
+        
+        # remove year
+        train_x = np.delete(train_x, var_idx, 1)
+        test_x = np.delete(test_x, var_idx, 1)
+
+        # generate predicted probs
+        classifier.fit(train_x, train_y)
+        preds = classifier.predict_proba(test_x)[:,1:].flatten()
+        return np.array([test_y, preds]).T 
+        
 ## ------------------------------------------------------------------------- ##
 ## ------------------------------------------------------------------------- ##
