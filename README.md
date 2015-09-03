@@ -5,6 +5,7 @@ This repository will host several Python and R scripts for feature engineering, 
 2 September 2015
 
 - `space_time_lags.ipynb`: Notebook demonstrating the process for generating spatiotemporal lags of regime failure. Replaces earlier code. 
+- `split_population_logit.py`: Class and functions for estimating the split population logistic regression with optional regularization parameters. 
 
 30 June 2015
 
