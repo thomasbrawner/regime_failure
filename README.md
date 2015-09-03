@@ -2,6 +2,10 @@
 
 This repository will host several Python and R scripts for data management and analysis related to the breakdown of authoritarian regimes. Additions are made as they become available. Comments and questions are encouraged. 
 
+2 September 2015
+
+- `space_time_lags.ipynb`: Notebook demonstrating the process for generating spatiotemporal lags of regime failure. Replaces earlier code. 
+
 30 June 2015
 
 - `separation_plot.py`: Python implementation of the separation plot, described in [Greenhill, B., Ward, M. D. and Sacks, A. (2011)](http://onlinelibrary.wiley.com/doi/10.1111/j.1540-5907.2011.00525.x/abstract;jsessionid=BD5CAFFC29F5F6226ECCC31EE41A0CCB.f03t04?deniedAccessCustomisedMessage=&userIsAuthenticated=false), using Pandas and Matplotlib. 
@@ -9,8 +13,6 @@ This repository will host several Python and R scripts for data management and a
 29 June 2015
 
 - `dissertation_programs.py`: Programs for estimating and presenting results for dissertation chapter 1 analysis.
-- `spatiotemporal_lags.py`: Code to generate new lags data, updated to include all weights and principal components.
-- Old scripts removed
 
 16 December 2014
 
