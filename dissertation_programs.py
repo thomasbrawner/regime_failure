@@ -22,16 +22,14 @@ def round_down_any(x, base):
     """
     Round down to nearest <base>.
     """
-    round_down = np.vectorize(floor)
-    x = np.array((x / base), dtype = float)
-    out = round_down(x)
-    return pd.Series(out * base).astype(int)
+    out = np.array(x) / base * base
+    return pd.Series(out)
 
 ## ------------------------------------------------------------------------- ##
 
 class DataAnalysis(object):
 
-    def __init__(self, dframe, depvar, factors = None):
+    def __init__(self, dframe, depvar, factors = None, scale = False):
         """
         Create formatted data frame for analysis, return X and y. 
     
@@ -50,14 +48,20 @@ class DataAnalysis(object):
                 dframe = dframe.drop(f, axis = 1)
 
         self.y = dframe.pop(depvar).values
-        self.X = StandardScaler().fit_transform(dframe.values) 
+        self.X = dframe.values
+        if scale:
+            self.X = StandardScaler().fit_transform(self.X) 
         self.features = dframe.columns 
         self.factors = factors
 
+        '''
         if 'year' in self.features.tolist():
             var_idx = self.features.tolist().index('year')
             self.X[:, var_idx] = dframe['year'].values 
+        '''
 
+        if 'year' in self.features.tolist():
+        	self.year = dframe['year'].values 
 
     def logit_optimal_c(self):
         """
@@ -203,20 +207,36 @@ class DataAnalysis(object):
                 ]
         """
         # train, test split on year
-        var_idx = self.features.tolist().index(year.keys()[0])
-        mask = (self.X[:, var_idx] < year.values()[0])
+        mask = self.year < year.values()[0]
         train_x, train_y = self.X[mask], self.y[mask]
-        mask2 = (self.X[:, var_idx] == year.values()[0])
+        mask2 = self.year == year.values()[0]
         test_x, test_y = self.X[mask2], self.y[mask2]
         
         # remove year
+        var_idx = self.features.tolist().index(year.keys()[0])
         train_x = np.delete(train_x, var_idx, 1)
         test_x = np.delete(test_x, var_idx, 1)
 
         # generate predicted probs
         classifier.fit(train_x, train_y)
         preds = classifier.predict_proba(test_x)[:,1:].flatten()
-        return np.array([test_y, preds]).T 
-        
+        years = np.repeat(year.values()[0], len(preds))
+        return np.array([years, test_y, preds]).T 
+
+
+    def train_test_split_year(self, year):
+
+        mask = self.year < year.values()[0]
+        train_x, train_y = self.X[mask], self.y[mask]
+        mask2 = self.year == year.values()[0]
+        test_x, test_y = self.X[mask2], self.y[mask2]
+
+        # remove year
+        var_idx = self.features.tolist().index(year.keys()[0])
+        train_x = np.delete(train_x, var_idx, 1)
+        test_x = np.delete(test_x, var_idx, 1)
+
+        return train_x, train_y, test_x, test_y
+
 ## ------------------------------------------------------------------------- ##
 ## ------------------------------------------------------------------------- ##
