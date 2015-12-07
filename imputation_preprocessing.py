@@ -14,9 +14,7 @@ def dummify(df, variable, drop=False):
 def generate_lag_combos(): 
     dv = ['failure', 'demtrans']
     lags = ['failure', 'demtrans', 'auttrans', 'coerce']
-    distance = ['geographic',
-                'linguistic', 
-                'trade']
+    distance = ['geographic', 'linguistic', 'trade']
     return itertools.product(dv, lags, distance)
 
 def generate_lag(df, dv, lag, distance): 
@@ -50,6 +48,7 @@ def generate_data():
     data = dummify(data, 'cowcode') 
     data = dummify(data, 'region')
     return data
+
 
 if __name__ == '__main__': 
     data = generate_data() 
