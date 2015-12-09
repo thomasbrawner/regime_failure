@@ -34,6 +34,42 @@ class DataFormatter(object):
         else: 
             self.X = self.data[self.specification].values
 
+
+class SequentialFoldsClassifier(object): 
+    def __init__(self, model, params, years, X, y): 
+        self.model = model
+        self.params = params
+        self.years = years
+        self.X = X
+        self.y = y
+
+    def make_split(self, year): 
+        train_mask = self.years < year 
+        train_x, train_y = self.X[train_mask], self.y[train_mask]
+        test_mask = self.years == year
+        test_x, train_x = self.X[test_mask], self.y[test_mask]
+        return train_x, train_y, test_x, test_y
+
+    def make_param_grid(self): 
+        param_combos = [x for x in apply(itertools.product, self.params.values())]
+        return [dict(zip(params.keys(), p)) for p in param_combos]
+
+    def evaluate_model(self, metric): 
+        self.scores = []
+        self.param_grid = self.make_param_grid()
+        for parameters in self.param_grid: 
+            model.set_params(parameters)
+            param_scores = []
+            for yr in np.unique(self.years): 
+                x_train, y_train, x_test, y_test = self.make_split(yr)
+                model.fit(x_train, y_train)
+                preds = model.predict(x_test)
+                params_scores.append(metric(y_test, preds))
+            self.scores.append(np.array(param_scores).mean())
+        self.optimal_params = self.param_grid[np.argmax(self.scores)]
+
+        
+
 def optimal_l2(X, y): 
     # Find the optimal level of L2 regularization 
     logit = LogisticRegressionCV(Cs=50, cv=10)
