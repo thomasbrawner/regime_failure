@@ -9,15 +9,16 @@ from sklearn.utils import resample
 
 class DataFormatter(object): 
     def __init__(self, dframe, depvar):
-        self.y = dframe.pop(depvar).values 
-        self.feature_names = dframe.columns.tolist() 
+        self.data = dframe
+        self.y = self.data.pop(depvar).values 
+        self.feature_names = self.data.columns.tolist() 
         if 'year' in self.feature_names:
-            self.years = dframe['year'].values 
+            self.years = self.data['year'].values 
 
     def set_specification(self, lag, factors=None): 
         lag = [lag]
-        regimes = ['military', 'personal', 'party', 'institutions']
-        controls = ['duration', 'gdppc', 'growth', 'resource', 'population'] 
+        regimes = ['duration', 'military', 'personal', 'party', 'institutions']
+        controls = ['gdppc', 'growth', 'resource', 'population'] 
         dummies = []
         if factors is not None: 
             for factor in factors: 
@@ -28,9 +29,9 @@ class DataFormatter(object):
         if not hasattr(self, 'specification'): 
             raise Exception('Need to set specification before formatting features')     
         if scale: 
-            self.X = StandardScaler().fit_transform(dframe[self.specification].values)
+            self.X = StandardScaler().fit_transform(self.data[self.specification].values)
         else: 
-            self.X = dframe[self.specification].values
+            self.X = self.data[self.specification].values
 
 def optimal_l2(X, y): 
     # Find the optimal level of L2 regularization 
@@ -38,3 +39,11 @@ def optimal_l2(X, y):
     logit.fit(X, y)
     return logit.C_ 
 
+def bootstrap_estimates(model, X, y, n_boot): 
+    # coefficient estimates for n_boot bootstrap samples 
+    coefs = [np.hstack([model.fit(iX, iy).intercept_, model.fit(iX, iy).coef_.ravel()])
+             for iX, iy in (resample(X, y) for _ in xrange(n_boot))]
+    return np.vstack(coefs)
+
+
+    
