@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd 
 import seaborn as sns 
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV 
+from sklearn.metrics import auc, precision_recall_curve
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample 
 
@@ -44,6 +45,11 @@ def bootstrap_estimates(model, X, y, n_boot):
     coefs = [np.hstack([model.fit(iX, iy).intercept_, model.fit(iX, iy).coef_.ravel()])
              for iX, iy in (resample(X, y) for _ in xrange(n_boot))]
     return np.vstack(coefs)
+
+def auc_pr_curve(y_true, y_pred): 
+    # area under the precision-recall curve 
+    precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
+    return auc(recall, precision)
 
 
     
