@@ -17,7 +17,7 @@ class DataFormatter(object):
     def set_specification(self, lag, factors=None): 
         lag = [lag]
         regimes = ['military', 'personal', 'party', 'institutions']
-        controls = ['duration', 'gdppc', 'growth', 'resource']
+        controls = ['duration', 'gdppc', 'growth', 'resource', 'population'] 
         dummies = []
         if factors is not None: 
             for factor in factors: 
