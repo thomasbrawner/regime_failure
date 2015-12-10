@@ -77,13 +77,6 @@ class SequentialFoldsClassifier(object):
         self.optimal_params = self.param_grid[np.argmax(self.roc_scores)]
 
         
-
-def optimal_l2(X, y): 
-    # Find the optimal level of L2 regularization 
-    logit = LogisticRegressionCV(Cs=50, cv=10)
-    logit.fit(X, y)
-    return logit.C_ 
-
 def bootstrap_estimates(model, X, y, n_boot): 
     # coefficient estimates for n_boot bootstrap samples 
     coefs = [np.hstack([model.fit(iX, iy).intercept_, model.fit(iX, iy).coef_.ravel()])
@@ -93,7 +86,4 @@ def bootstrap_estimates(model, X, y, n_boot):
 def auc_pr_curve(y_true, y_pred): 
     # area under the precision-recall curve 
     precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
-    return auc(recall, precision)
-
-
-    
+    return auc(recall, precision) 
