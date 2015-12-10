@@ -2,6 +2,7 @@ import itertools
 import matplotlib.pyplot as plt 
 import numpy as np 
 import pandas as pd 
+import progressbar
 import seaborn as sns 
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV 
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
@@ -59,7 +60,9 @@ class SequentialFoldsClassifier(object):
         self.pr_scores = []
         self.roc_scores = []
         self.param_grid = self.make_param_grid()
-        for parameters in self.param_grid: 
+        progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
+                                                    progressbar.Percentage(), ' ']) 
+        for parameters in progress(self.param_grid):
             self.model.set_params(**parameters)
             param_pr_scores = []
             param_roc_scores = []
@@ -74,9 +77,34 @@ class SequentialFoldsClassifier(object):
                     pass 
             self.pr_scores.append(np.nanmean(param_pr_scores))
             self.roc_scores.append(np.nanmean(param_roc_scores))
-        self.optimal_params = self.param_grid[np.argmax(self.roc_scores)]
+        self.optimal_params_pr = self.param_grid[np.argmax(self.pr_scores)]
+        self.optimal_params_roc = self.param_grid[np.argmax(self.roc_scores)]
 
-        
+    def plot_metrics(self, fname, x_label=None):
+        if len(self.params) > 1: 
+            raise Exception('Can only plot performance over a single hyperparameter')
+        x = np.array(self.params.values()[0])
+        plt.figure()  
+        plt.plot(x, np.array(self.pr_scores), c='k', linestyle='--', label='Precision-Recall Curve')
+        plt.plot(x, np.array(self.roc_scores), c='k', linestyle=':', label='ROC Curve')
+        plt.xscale('log')
+        if x_label is not None:
+            plt.xlabel(x_label, labelpad=11)
+        else: 
+            plt.xlabel(self.params.keys()[0], labelpad=11)
+        plt.ylabel('Area Under Curve', labelpad=11)
+        plt.legend(loc='best')
+        plt.tight_layout() 
+        plt.savefig(fname)
+        plt.close()
+        return
+
+
+class ParallelizeOverImputations(object):
+    def __init__(self): 
+        pass 
+
+
 def bootstrap_estimates(model, X, y, n_boot): 
     # coefficient estimates for n_boot bootstrap samples 
     coefs = [np.hstack([model.fit(iX, iy).intercept_, model.fit(iX, iy).coef_.ravel()])
