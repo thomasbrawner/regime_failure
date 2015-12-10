@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd 
 import seaborn as sns 
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV 
-from sklearn.metrics import auc, precision_recall_curve
+from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample 
 
@@ -55,19 +55,26 @@ class SequentialFoldsClassifier(object):
         param_combos = [x for x in apply(itertools.product, self.params.values())]
         return [dict(zip(self.params.keys(), p)) for p in param_combos]
 
-    def evaluate_model(self, metric): 
-        self.scores = []
+    def evaluate_model(self): 
+        self.pr_scores = []
+        self.roc_scores = []
         self.param_grid = self.make_param_grid()
         for parameters in self.param_grid: 
             self.model.set_params(**parameters)
-            param_scores = []
+            param_pr_scores = []
+            param_roc_scores = []
             for yr in np.unique(self.years)[np.unique(self.years) > 1960]: 
                 x_train, y_train, x_test, y_test = self.make_split(yr)
                 self.model.fit(x_train, y_train)
-                preds = self.model.predict(x_test)
-                param_scores.append(metric(y_test, preds))
-            self.scores.append(np.array(param_scores).mean())
-        self.optimal_params = self.param_grid[np.argmax(self.scores)]
+                preds = self.model.predict_proba(x_test)[:, 1]
+                param_pr_scores.append(auc_pr_curve(y_test, preds))
+                try:
+                    param_roc_scores.append(roc_auc_score(y_test, preds))
+                except: 
+                    pass 
+            self.pr_scores.append(np.nanmean(param_pr_scores))
+            self.roc_scores.append(np.nanmean(param_roc_scores))
+        self.optimal_params = self.param_grid[np.argmax(self.roc_scores)]
 
         
 
@@ -80,8 +87,8 @@ def optimal_l2(X, y):
 def bootstrap_estimates(model, X, y, n_boot): 
     # coefficient estimates for n_boot bootstrap samples 
     coefs = [np.hstack([model.fit(iX, iy).intercept_, model.fit(iX, iy).coef_.ravel()])
-             for iX, iy in (resample(X, y) for _ in xrange(n_boot))]
-    return np.vstack(coefs)
+             for iX, iy in (resample(X, y) for _ in xrange(n_boot))] 
+    return np.vstack(coefs) 
 
 def auc_pr_curve(y_true, y_pred): 
     # area under the precision-recall curve 
