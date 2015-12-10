@@ -93,6 +93,7 @@ class SequentialFoldsClassifier(object):
         else: 
             plt.xlabel(self.params.keys()[0], labelpad=11)
         plt.ylabel('Area Under Curve', labelpad=11)
+        plt.ylim([0.0, 1.0])
         plt.legend(loc='best')
         plt.tight_layout() 
         plt.savefig(fname)
