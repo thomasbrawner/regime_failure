@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd 
 import progressbar
 import seaborn as sns 
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV 
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample 
@@ -70,15 +69,31 @@ class SequentialFoldsClassifier(object):
                 x_train, y_train, x_test, y_test = self.make_split(yr)
                 self.model.fit(x_train, y_train)
                 preds = self.model.predict_proba(x_test)[:, 1]
-                param_pr_scores.append(auc_pr_curve(y_test, preds))
                 try:
                     param_roc_scores.append(roc_auc_score(y_test, preds))
+                    param_pr_scores.append(auc_pr_curve(y_test, preds))
                 except: 
                     pass 
             self.pr_scores.append(np.nanmean(param_pr_scores))
             self.roc_scores.append(np.nanmean(param_roc_scores))
         self.optimal_params_pr = self.param_grid[np.argmax(self.pr_scores)]
         self.optimal_params_roc = self.param_grid[np.argmax(self.roc_scores)]
+
+    def predict(self, metric='roc'):
+        if metric == 'pr':
+            self.model.set_params(**self.optimal_params_pr)
+        elif metric == 'roc':
+            self.model.set_params(**self.optimal_params_roc)
+        else:
+            raise Exception('Metric {0} not supported'.format(metric))
+        data, probs = [], []
+        for yr in np.unique(self.years)[np.unique(self.years) > 1960]:
+            x_train, y_train, x_test, y_test = self.make_split(yr)
+            self.model.fit(x_train, y_train)
+            probs.append(self.model.predict_proba(x_test)[:, 1])
+            data.append(y_test)
+        self.y_test = np.concatenate(data)
+        self.probabilities = np.concatenate(probs)
 
     def plot_metrics(self, fname, x_label=None):
         if len(self.params) > 1: 
@@ -101,9 +116,14 @@ class SequentialFoldsClassifier(object):
         return
 
 
-class ParallelizeOverImputations(object):
-    def __init__(self): 
-        pass 
+class CombineResultsOverImputations(object):
+    def __init__(self, results, coefficients=False): 
+        self.results = results  
+        if coefficients:
+            self.coefs = self.make_coefs() 
+
+    def make_coefs(self):
+        pass
 
 
 def bootstrap_estimates(model, X, y, n_boot): 
