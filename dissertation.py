@@ -116,14 +116,16 @@ class SequentialFoldsClassifier(object):
         return
 
 
-class CombineResultsOverImputations(object):
-    def __init__(self, results, coefficients=False): 
-        self.results = results  
-        if coefficients:
-            self.coefs = self.make_coefs() 
+class Melder(object):
+    def __init__(self, results):
+        self.results = results 
 
-    def make_coefs(self):
-        pass
+    def meld_predictions(self, metric='roc'): 
+        predictions_array = [result.predict(metric).probabilities for result in self.results]
+        return np.array(predictions_array).mean(axis=1)
+        
+    def meld_coefficients(self): 
+        pass 
 
 
 def bootstrap_estimates(model, X, y, n_boot): 
