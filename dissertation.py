@@ -121,8 +121,11 @@ class Melder(object):
         self.results = results 
 
     def meld_predictions(self, metric='roc'): 
-        predictions_array = [result.predict(metric).probabilities for result in self.results]
-        return np.array(predictions_array).mean(axis=1)
+        out_preds = [] 
+        for result in self.results: 
+            result.predict(metric)
+            out_preds.append(result.probabilities)
+        return np.array(out_preds).mean(axis=0)
         
     def meld_coefficients(self): 
         pass 
