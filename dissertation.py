@@ -79,6 +79,19 @@ class SequentialFoldsClassifier(object):
         self.optimal_params_pr = self.param_grid[np.argmax(self.pr_scores)]
         self.optimal_params_roc = self.param_grid[np.argmax(self.roc_scores)]
 
+    def bootstrap_estimates(self, nboot=100, metric='roc'):
+        if not isinstance(self.model, LogisticRegression): 
+            raise Exception('Bootstrap model estimates only available for LogisticRegression')
+        if metric == 'pr':
+            self.model.set_params(**self.optimal_params_pr)
+        elif metric == 'roc':
+            self.model.set_params(**self.optimal_params_roc)
+        else:
+            raise Exception('Metric {0} not supported'.format(metric))
+        ests = [np.hstack([self.model.fit(iX, iy).intercept_, self.model.fit(iX, iy).coef_.ravel()])
+                 for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
+        self.boot_estimates = np.vstack(ests)
+
     def predict(self, metric='roc'):
         if metric == 'pr':
             self.model.set_params(**self.optimal_params_pr)
