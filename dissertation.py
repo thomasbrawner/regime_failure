@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd 
 import progressbar
 import seaborn as sns 
+from sklearn.linear_model import LogisticRegression 
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 from sklearn.preprocessing import StandardScaler
 from sklearn.utils import resample 
@@ -79,7 +80,7 @@ class SequentialFoldsClassifier(object):
         self.optimal_params_pr = self.param_grid[np.argmax(self.pr_scores)]
         self.optimal_params_roc = self.param_grid[np.argmax(self.roc_scores)]
 
-    def bootstrap_estimates(self, nboot=100, metric='roc'):
+    def bootstrap_estimates(self, n_boot=100, metric='roc'):
         if not isinstance(self.model, LogisticRegression): 
             raise Exception('Bootstrap model estimates only available for LogisticRegression')
         if metric == 'pr':
@@ -141,7 +142,11 @@ class Melder(object):
         return np.array(out_preds).mean(axis=0)
         
     def meld_coefficients(self): 
-        pass 
+        out_ests = []
+        for result in self.results: 
+            result.bootstrap_estimates() 
+            out_ests.append(result.boot_estimates)
+        return np.concatenate(out_ests)
 
 
 def auc_pr_curve(y_true, y_pred): 
