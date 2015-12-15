@@ -89,7 +89,7 @@ class SequentialFoldsClassifier(object):
         else:
             raise Exception('Metric {0} not supported'.format(metric))
         ests = [np.hstack([self.model.fit(iX, iy).intercept_, self.model.fit(iX, iy).coef_.ravel()])
-                 for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
+                for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
         self.boot_estimates = np.vstack(ests)
 
     def predict(self, metric='roc'):
@@ -143,12 +143,6 @@ class Melder(object):
     def meld_coefficients(self): 
         pass 
 
-
-def bootstrap_estimates(model, X, y, n_boot): 
-    # coefficient estimates for n_boot bootstrap samples 
-    coefs = [np.hstack([model.fit(iX, iy).intercept_, model.fit(iX, iy).coef_.ravel()])
-             for iX, iy in (resample(X, y) for _ in xrange(n_boot))] 
-    return np.vstack(coefs) 
 
 def auc_pr_curve(y_true, y_pred): 
     # area under the precision-recall curve 
