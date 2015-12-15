@@ -1,3 +1,4 @@
+from __future__ import print_function 
 import itertools
 import matplotlib.pyplot as plt 
 import numpy as np 
@@ -136,14 +137,20 @@ class Melder(object):
 
     def meld_predictions(self, metric='roc'): 
         out_preds = [] 
-        for result in self.results: 
+        print('\nMelding predicted probabilities\n\n')
+        progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
+                                                    progressbar.Percentage(), ' ']) 
+        for result in progress(self.results):
             result.predict(metric)
             out_preds.append(result.probabilities)
         return np.array(out_preds).mean(axis=0)
         
     def meld_coefficients(self): 
         out_ests = []
-        for result in self.results: 
+        print('\nMelding coefficient estimates\n\n')
+        progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
+                                                    progressbar.Percentage(), ' ']) 
+        for result in progress(self.results):
             result.bootstrap_estimates() 
             out_ests.append(result.boot_estimates)
         return np.concatenate(out_ests)
