@@ -145,7 +145,7 @@ class Melder(object):
             out_preds.append(result.probabilities)
         return np.array(out_preds).mean(axis=0)
         
-    def meld_coefficients(self): 
+    def meld_estimates(self): 
         out_ests = []
         print('\nMelding coefficient estimates\n\n')
         progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
@@ -155,6 +155,21 @@ class Melder(object):
             out_ests.append(result.boot_estimates)
         return np.concatenate(out_ests)
 
+
+def boxplot_estimates(ests, names, ignore=None, fname=None):
+    if ignore is not None: 
+        names = [[name for name in names if prefix not in None] for prefix in ignore]
+        ests = ests[:, :len(names)]
+    data = pd.DataFrame(ests, columns=names)
+    sns.boxplot(data)
+    plt.axhline(x=0, linestyle='--')
+    plt.ylabel('Estimate')
+    plt.tight_layout()
+    if fname is not None:
+        plt.savefig(fname)
+        plt.close() 
+    else: 
+        plt.show() 
 
 def auc_pr_curve(y_true, y_pred): 
     # area under the precision-recall curve 
