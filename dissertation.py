@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np 
 import pandas as pd 
 import progressbar
+import re 
 import seaborn as sns 
 from sklearn.linear_model import LogisticRegression 
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
@@ -90,7 +91,7 @@ class SequentialFoldsClassifier(object):
             self.model.set_params(**self.optimal_params_roc)
         else:
             raise Exception('Metric {0} not supported'.format(metric))
-        ests = [np.hstack([self.model.fit(iX, iy).intercept_, self.model.fit(iX, iy).coef_.ravel()])
+        ests = [np.hstack([self.model.fit(iX, iy).coef_.ravel(), self.model.fit(iX, iy).intercept_])
                 for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
         self.boot_estimates = np.vstack(ests)
 
@@ -137,7 +138,7 @@ class Melder(object):
 
     def meld_predictions(self, metric='roc'): 
         out_preds = [] 
-        print('\nMelding predicted probabilities\n\n')
+        print('\nMelding predicted probabilities')
         progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
                                                     progressbar.Percentage(), ' ']) 
         for result in progress(self.results):
@@ -147,7 +148,7 @@ class Melder(object):
         
     def meld_estimates(self): 
         out_ests = []
-        print('\nMelding coefficient estimates\n\n')
+        print('\nMelding coefficient estimates')
         progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
                                                     progressbar.Percentage(), ' ']) 
         for result in progress(self.results):
@@ -158,11 +159,13 @@ class Melder(object):
 
 def boxplot_estimates(ests, names, ignore=None, fname=None):
     if ignore is not None: 
-        names = [[name for name in names if prefix not in None] for prefix in ignore]
+        for factor in ignore:
+            p = re.compile(factor)
+            [names.remove(m) for m in filter(p.match, names)]
         ests = ests[:, :len(names)]
     data = pd.DataFrame(ests, columns=names)
     sns.boxplot(data)
-    plt.axhline(x=0, linestyle='--')
+    plt.axhline(y=0, linestyle='--')
     plt.ylabel('Estimate')
     plt.tight_layout()
     if fname is not None:
@@ -170,6 +173,7 @@ def boxplot_estimates(ests, names, ignore=None, fname=None):
         plt.close() 
     else: 
         plt.show() 
+
 
 def auc_pr_curve(y_true, y_pred): 
     # area under the precision-recall curve 
