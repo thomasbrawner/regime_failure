@@ -61,9 +61,7 @@ class SequentialFoldsClassifier(object):
     def evaluate_model(self, metric=roc_auc_score): 
         self.scores = []
         self.param_grid = self.make_param_grid()
-        progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
-                                                    progressbar.Percentage(), ' ']) 
-        for parameters in progress(self.param_grid):
+        for parameters in self.param_grid:
             self.model.set_params(**parameters)
             param_scores = []
             for yr in np.unique(self.years)[np.unique(self.years) > 1960]: 
@@ -117,25 +115,38 @@ class SequentialFoldsClassifier(object):
 
 
 class Melder(object):
-    def __init__(self, results):
-        self.results = results 
+    def __init__(self, imputations, model, params):
+        self.imputations = imputations
+        self.model = model 
+        self.params = params
+        self.progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
+                                                         progressbar.Percentage(), ' '],
+                                                         maxval=len(self.imputations)) 
+        
+    def evaluate_models(self): 
+        print('\nEvaluating models for {0} imputed data sets'.format(str(len(self.imputations))))
+        out_models = []
+        self.progress.currval = 0
+        for df in self.progress(self.imputations):
+            m = SequentialFoldsClassifier(self.model, self.params, df.years, df.X, df.y)
+            m.evaluate_model() 
+            out_models.append(m)
+        self.model_evaluations = out_models
 
     def meld_predictions(self): 
-        out_preds = [] 
         print('\nMelding predicted probabilities')
-        progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
-                                                    progressbar.Percentage(), ' ']) 
-        for result in progress(self.results):
+        out_preds = [] 
+        self.progress.currval = 0
+        for result in self.progress(self.model_evaluations):
             result.predict()
             out_preds.append(result.probabilities)
         return np.array(out_preds).mean(axis=0)
         
     def meld_estimates(self): 
+        print('\nConcatenating bootstrap estimates')
         out_ests = []
-        print('\nMelding coefficient estimates')
-        progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
-                                                    progressbar.Percentage(), ' ']) 
-        for result in progress(self.results):
+        self.progress.currval = 0
+        for result in self.progress(self.model_evaluations):
             result.bootstrap_estimates() 
             out_ests.append(result.boot_estimates)
         return np.concatenate(out_ests)
