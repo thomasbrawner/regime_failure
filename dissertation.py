@@ -159,9 +159,10 @@ def boxplot_estimates(ests, names, ignore=None, fname=None):
             [names.remove(m) for m in filter(p.match, names)]
         ests = ests[:, :len(names)]
     data = pd.DataFrame(ests, columns=names)
-    sns.boxplot(data)
-    plt.axhline(y=0, linestyle='--')
-    plt.ylabel('Estimate')
+    data = pd.melt(data)
+    sns.boxplot(x='value', y='variable', data=data)
+    plt.axvline(x=0, linestyle='--')
+    plt.xlabel('Estimate'); plt.ylabel('')
     plt.tight_layout()
     if fname is not None:
         plt.savefig(fname)
