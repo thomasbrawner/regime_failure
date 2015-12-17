@@ -91,7 +91,7 @@ Which we can then visualize in histogram.
     plt.xlabel('Predicted Probabilities', labelpad=11); 
 
 
-![png](output_13_0.png)
+<img src='output_13_0.png'>
 
 
 Finally, we can extract and visualize the coefficient estimates averaged across the models. The sampling distribution for the estimates is obtained by evaluating the model on 100 bootstrap samples drawn from each of the ten imputed data sets, resulting in 1000 estimates. 
@@ -111,5 +111,5 @@ In place of a regression table with coefficient estimates and standard errors, I
     diss.boxplot_estimates(boot_estimates, names, ignore=['region_', 'period_'])
 
 
-![png](output_17_0.png)
+<img src='output_17_0.png'>
 
