@@ -58,50 +58,35 @@ class SequentialFoldsClassifier(object):
         param_combos = [x for x in apply(itertools.product, self.params.values())]
         return [dict(zip(self.params.keys(), p)) for p in param_combos]
 
-    def evaluate_model(self): 
-        self.pr_scores = []
-        self.roc_scores = []
+    def evaluate_model(self, metric=roc_auc_score): 
+        self.scores = []
         self.param_grid = self.make_param_grid()
         progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
                                                     progressbar.Percentage(), ' ']) 
         for parameters in progress(self.param_grid):
             self.model.set_params(**parameters)
-            param_pr_scores = []
-            param_roc_scores = []
+            param_scores = []
             for yr in np.unique(self.years)[np.unique(self.years) > 1960]: 
                 x_train, y_train, x_test, y_test = self.make_split(yr)
                 self.model.fit(x_train, y_train)
                 preds = self.model.predict_proba(x_test)[:, 1]
                 try:
-                    param_roc_scores.append(roc_auc_score(y_test, preds))
-                    param_pr_scores.append(auc_pr_curve(y_test, preds))
+                    param_scores.append(metric(y_test, preds))
                 except: 
                     pass 
-            self.pr_scores.append(np.nanmean(param_pr_scores))
-            self.roc_scores.append(np.nanmean(param_roc_scores))
-        self.optimal_params_pr = self.param_grid[np.argmax(self.pr_scores)]
-        self.optimal_params_roc = self.param_grid[np.argmax(self.roc_scores)]
+            self.scores.append(np.mean(param_scores))
+        self.optimal_params = self.param_grid[np.argmax(self.scores)]
 
-    def bootstrap_estimates(self, n_boot=100, metric='roc'):
+    def bootstrap_estimates(self, n_boot=100): 
         if not isinstance(self.model, LogisticRegression): 
             raise Exception('Bootstrap model estimates only available for LogisticRegression')
-        if metric == 'pr':
-            self.model.set_params(**self.optimal_params_pr)
-        elif metric == 'roc':
-            self.model.set_params(**self.optimal_params_roc)
-        else:
-            raise Exception('Metric {0} not supported'.format(metric))
+        self.model.set_params(**self.optimal_params)
         ests = [np.hstack([self.model.fit(iX, iy).coef_.ravel(), self.model.fit(iX, iy).intercept_])
                 for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
         self.boot_estimates = np.vstack(ests)
 
-    def predict(self, metric='roc'):
-        if metric == 'pr':
-            self.model.set_params(**self.optimal_params_pr)
-        elif metric == 'roc':
-            self.model.set_params(**self.optimal_params_roc)
-        else:
-            raise Exception('Metric {0} not supported'.format(metric))
+    def predict(self):
+        self.model.set_params(**self.optimal_params)
         data, probs = [], []
         for yr in np.unique(self.years)[np.unique(self.years) > 1960]:
             x_train, y_train, x_test, y_test = self.make_split(yr)
@@ -116,8 +101,7 @@ class SequentialFoldsClassifier(object):
             raise Exception('Can only plot performance over a single hyperparameter')
         x = np.array(self.params.values()[0])
         plt.figure()  
-        plt.plot(x, np.array(self.pr_scores), c='k', linestyle='--', label='Precision-Recall Curve')
-        plt.plot(x, np.array(self.roc_scores), c='k', linestyle=':', label='ROC Curve')
+        plt.plot(x, np.array(self.scores), c='k', linestyle=':')
         plt.xscale('log')
         if x_label is not None:
             plt.xlabel(x_label, labelpad=11)
@@ -136,13 +120,13 @@ class Melder(object):
     def __init__(self, results):
         self.results = results 
 
-    def meld_predictions(self, metric='roc'): 
+    def meld_predictions(self): 
         out_preds = [] 
         print('\nMelding predicted probabilities')
         progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
                                                     progressbar.Percentage(), ' ']) 
         for result in progress(self.results):
-            result.predict(metric)
+            result.predict()
             out_preds.append(result.probabilities)
         return np.array(out_preds).mean(axis=0)
         
