@@ -141,7 +141,7 @@ class Melder(object):
         for result in self.progress(self.model_evaluations):
             result.predict()
             out_preds.append(result.probabilities)
-        return np.array(out_preds).mean(axis=0)
+        self.predictions = np.array(out_preds).mean(axis=0)
         
     def meld_estimates(self): 
         print('\nConcatenating bootstrap estimates')
@@ -150,7 +150,7 @@ class Melder(object):
         for result in self.progress(self.model_evaluations):
             result.bootstrap_estimates() 
             out_ests.append(result.boot_estimates)
-        return np.concatenate(out_ests)
+        self.estimates = np.concatenate(out_ests)
 
 
 def boxplot_estimates(ests, names, ignore=None, fname=None):
