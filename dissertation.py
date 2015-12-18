@@ -21,7 +21,8 @@ class DataFormatter(object):
             self.years = self.data['year'].values 
 
     def set_specification(self, lag, factors=None): 
-        lag = [lag]
+        if not isinstance(lag, list): 
+            lag = [lag]
         regimes = ['duration', 'military', 'personal', 'party', 'institutions']
         controls = ['gdppc', 'growth', 'resource', 'population'] 
         dummies = []
@@ -160,8 +161,8 @@ def boxplot_estimates(ests, names, ignore=None, fname=None):
         ests = ests[:, :len(names)]
     data = pd.DataFrame(ests, columns=names)
     data = pd.melt(data)
-    sns.boxplot(x='value', y='variable', data=data)
-    plt.axvline(x=0, linestyle='--')
+    sns.boxplot(x='value', y='variable', data=data, color='0.50')
+    plt.axvline(x=0, linestyle=':', c='k')
     plt.xlabel('Estimate'); plt.ylabel('')
     plt.tight_layout()
     if fname is not None:
