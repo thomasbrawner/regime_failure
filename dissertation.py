@@ -100,6 +100,7 @@ class SequentialFoldsClassifier(object):
 class Melder(object):
     def __init__(self, imputations, model, params):
         self.imputations = imputations
+        self.y = self.imputations[0].y
         self.model = model 
         self.params = params
         self.progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
