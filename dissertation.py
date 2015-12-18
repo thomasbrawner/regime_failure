@@ -96,25 +96,6 @@ class SequentialFoldsClassifier(object):
         self.y_test = np.concatenate(data)
         self.probabilities = np.concatenate(probs)
 
-    def plot_metrics(self, fname, x_label=None):
-        if len(self.params) > 1: 
-            raise Exception('Can only plot performance over a single hyperparameter')
-        x = np.array(self.params.values()[0])
-        plt.figure()  
-        plt.plot(x, np.array(self.scores), c='k', linestyle=':')
-        plt.xscale('log')
-        if x_label is not None:
-            plt.xlabel(x_label, labelpad=11)
-        else: 
-            plt.xlabel(self.params.keys()[0], labelpad=11)
-        plt.ylabel('Area Under Curve', labelpad=11)
-        plt.ylim([0.0, 1.0])
-        plt.legend(loc='best')
-        plt.tight_layout() 
-        plt.savefig(fname)
-        plt.close()
-        return
-
 
 class Melder(object):
     def __init__(self, imputations, model, params):
@@ -152,3 +133,8 @@ class Melder(object):
             result.bootstrap_estimates() 
             out_ests.append(result.boot_estimates)
         self.estimates = np.concatenate(out_ests)
+
+    def boxplot_estimates(self, names, ignore=None, fname=None): 
+        if not hasattr(self, 'estimates'): 
+            raise Exception('No estimates to present. Run meld_estimates first')
+        dp.boxplot_estimates(self.estimates, names, ignore, fname)
