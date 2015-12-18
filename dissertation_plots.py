@@ -9,7 +9,7 @@ def roc_plot(models, labels, fname=None):
         labels = ['Model 1', 'Model 2']
     pdata = [] 
     for model in models:
-        pdata.append(roc_curve(y_true, y_score))
+        pdata.append(roc_curve(model.y, model.predictions))
     plt.plot(pdata[0][1], pdata[0][0], linestyle=':', label=labels[0])
     plt.plot(pdata[1][1], pdata[1][0], linestyle='--', label=labels[1])
     plt.xlabel('False Positive Rate', labelpad=11)
