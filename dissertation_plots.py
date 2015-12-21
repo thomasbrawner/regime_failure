@@ -1,19 +1,26 @@
 import matplotlib.pyplot as plt 
 import numpy as np 
 import seaborn as sns 
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, precision_recall_curve
 
 
-def roc_plot(models, labels, fname=None):
+def performance_plot(models, plotter=roc_curve, labels=None, fname=None):
     if labels is None: 
         labels = ['Model 1', 'Model 2']
+    if plotter.func_name == 'roc_curve':
+        xlabel, ylabel = 'False Positive Rate', 'True Positive Rate'
+    elif plotter.func_name == 'precision_recall_curve':
+        xlabel, ylabel = 'Recall', 'Precision'
+    else:
+        print('Warning: plot type not recognized, empty axis labels set')
+        xlabel, ylabel = '', ''
     pdata = [] 
     for model in models:
-        pdata.append(roc_curve(model.y, model.predictions))
+        pdata.append(plotter(model.y, model.predictions))
     plt.plot(pdata[0][1], pdata[0][0], linestyle=':', label=labels[0])
     plt.plot(pdata[1][1], pdata[1][0], linestyle='--', label=labels[1])
-    plt.xlabel('False Positive Rate', labelpad=11)
-    plt.ylabel('True Positive Rate', labelpad=11)
+    plt.xlabel(xlabel, labelpad=11)
+    plt.ylabel(ylabel, labelpad=11)
     plt.legend(loc='lower right')
     plt.tight_layout()
     if fname is not None: 
@@ -40,9 +47,3 @@ def boxplot_estimates(ests, names, ignore=None, fname=None):
         plt.close() 
     else: 
         plt.show() 
-
-
-def auc_pr_curve(y_true, y_pred): 
-    # area under the precision-recall curve 
-    precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
-    return auc(recall, precision) 
