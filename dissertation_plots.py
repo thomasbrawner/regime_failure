@@ -30,6 +30,36 @@ def performance_plot(models, plotter=roc_curve, labels=None, fname=None):
         plt.show() 
 
 
+def separation_plot_data(y_true, y_prob): 
+    pdata = pd.DataFrame([y_true, y_pred]).T
+    pdata.columns = ['y', 'yhat']
+    pdata = pdata.sort('yhat')
+    pdata = pdata.reset_index(drop=True)
+    events = pdata[pdata['y'] == 1]
+    return pdata['yhat'].values, events.index.values
+
+
+def separation_plot(models, alpha=0.8, labels=None, fname=None): 
+    if labels is None:
+        labels = ['Model 1', 'Model 2']
+    pdata = []
+    for model in models: 
+        pdata.append(separation_plot_data(model.y, model.predictions))
+    plt.figure(figsize=(12, (3 * len(models)))
+    for row in xrange(1, len(models) + 1): 
+        ax = plt.subplot(len(models), 1, row)
+        ax.plot(pdata[0], '-')
+        for event in pdata[1]:
+            ax.axvline(x=event, linewidth=0.5, linestyle='-', color='r', alpha=alpha)
+        ax.set_ylim([0, 1])
+        ax.ylabel(label[row - 1])
+    if fname is not None:
+        plt.savefig(fname)
+        plt.close() 
+    else: 
+        plt.show() 
+
+
 def boxplot_estimates(ests, names, ignore=None, fname=None):
     if ignore is not None: 
         for factor in ignore:
