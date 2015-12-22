@@ -101,6 +101,8 @@ class Melder(object):
     def __init__(self, imputations, model, params):
         self.imputations = imputations
         self.y = self.imputations[0].y
+        self.years = self.imputations[0].years
+        self.y_test = self.y[self.years > 1960]
         self.model = model 
         self.params = params
         self.progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
@@ -125,7 +127,7 @@ class Melder(object):
             result.predict()
             out_preds.append(result.probabilities)
         self.predictions = np.array(out_preds).mean(axis=0)
-        
+
     def meld_estimates(self): 
         print('\nConcatenating bootstrap estimates')
         out_ests = []
@@ -139,3 +141,40 @@ class Melder(object):
         if not hasattr(self, 'estimates'): 
             raise Exception('No estimates to present. Run meld_estimates first')
         dp.boxplot_estimates(self.estimates, names, ignore, fname)
+
+
+
+def prepare_data(file_path, dep_var, lag_var, factors, scale=False): 
+    df = pd.read_table(file_path, sep=',', index_col=0)
+    df = DataFormatter(df, depvar=dep_var)
+    df.set_specification(lag=lag_var, factors=factors)
+    df.format_features(scale=scale)
+    return df
+
+def make_file_path(number): 
+    return 'clean_data/imputation_{0}.csv'.format(str(number))
+
+def specification_details(classifier, dep_var, lag_var): 
+    model = classifier.__class__.__name__
+    penalty = '' 
+    if isinstance(classifier, LogisticRegression): 
+        penalty = classifier.get_params()['penalty']
+    s = '\n' + model + ' ' + penalty + '\nDependent Variable: ' + dep_var + '\nLag Variable: ' + '_'.join(lag_var)
+    m = model + penalty
+    return s, m
+
+def run_specification(classifier, params, dep_var, lag_var, factors=None, scale=False, estimates=False):
+    data_list = [prepare_data(file_path=make_file_path(i), 
+                              dep_var=dep_var, 
+                              lag_var=lag_var,
+                              factors=factors, 
+                              scale=scale)
+                 for i in xrange(1, 11)]
+    spec, mod = specification_details(classifier, dep_var, lag_var)
+    print(spec)
+    melder = Melder(data_list, classifier, params)
+    melder.evaluate_models()
+    melder.meld_predictions()
+    if estimates:
+        melder.meld_estimates() 
+    return melder, mod
