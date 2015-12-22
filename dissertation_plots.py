@@ -1,5 +1,8 @@
+from __future__ import print_function
 import matplotlib.pyplot as plt 
 import numpy as np 
+import pandas as pd 
+import re
 import seaborn as sns 
 from sklearn.metrics import roc_curve, precision_recall_curve
 
@@ -31,7 +34,7 @@ def performance_plot(models, plotter=roc_curve, labels=None, fname=None):
 
 
 def separation_plot_data(y_true, y_prob): 
-    pdata = pd.DataFrame([y_true, y_pred]).T
+    pdata = pd.DataFrame([y_true, y_prob]).T
     pdata.columns = ['y', 'yhat']
     pdata = pdata.sort('yhat')
     pdata = pdata.reset_index(drop=True)
@@ -44,15 +47,17 @@ def separation_plot(models, alpha=0.8, labels=None, fname=None):
         labels = ['Model 1', 'Model 2']
     pdata = []
     for model in models: 
-        pdata.append(separation_plot_data(model.y, model.predictions))
-    plt.figure(figsize=(12, (3 * len(models)))
-    for row in xrange(1, len(models) + 1): 
+        pdata.append(separation_plot_data(model.y_test, model.predictions))
+    plt.figure(figsize=(12, (3 * len(models))))
+    for row in range(1, len(models) + 1): 
         ax = plt.subplot(len(models), 1, row)
-        ax.plot(pdata[0], '-')
-        for event in pdata[1]:
+        ax.tick_params(axis='x', which='both', bottom='off', top='off', labelbottom='off')
+        ax.plot(pdata[row - 1][0], '-')
+        for event in pdata[row - 1][1]:
             ax.axvline(x=event, linewidth=0.5, linestyle='-', color='r', alpha=alpha)
+        ax.set_xlim([-1, len(model.y_test) + 1])
         ax.set_ylim([0, 1])
-        ax.ylabel(label[row - 1])
+        ax.set_ylabel(labels[row - 1])
     if fname is not None:
         plt.savefig(fname)
         plt.close() 
