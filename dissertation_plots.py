@@ -19,7 +19,8 @@ def performance_plot(models, plotter=roc_curve, labels=None, fname=None):
         xlabel, ylabel = '', ''
     pdata = [] 
     for model in models:
-        pdata.append(plotter(model.y, model.predictions))
+        pdata.append(plotter(model.y_test, model.predictions))
+    plt.figure(figsize=(6, 6))
     plt.plot(pdata[0][1], pdata[0][0], linestyle=':', label=labels[0])
     plt.plot(pdata[1][1], pdata[1][0], linestyle='--', label=labels[1])
     plt.xlabel(xlabel, labelpad=11)
