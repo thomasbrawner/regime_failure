@@ -17,7 +17,8 @@ from sklearn.utils import resample
 class DataFormatter(object): 
     def __init__(self, dframe, depvar):
         self.data = dframe
-        self.y = self.data.pop(depvar).values 
+        self.depvar = depvar
+        self.y = self.data.pop(self.depvar).values 
         self.feature_names = self.data.columns.tolist() 
         if 'year' in self.feature_names:
             self.years = self.data['year'].values 
@@ -25,15 +26,15 @@ class DataFormatter(object):
     def set_specification(self, lags=True, regimes=True, controls=True, cs=True, ts=True):
         self.specification = []
         if lags:
-            self.specification += [col for col in self.feature_names if 'lag' in col]
+            self.specification += [col for col in self.feature_names if col.startswith(self.depvar) and 'lag' in col]
         if regimes:
-            self.specification += ['duration', 'military', 'personal', 'party', 'institutions']
+            self.specification += ['duration', 'military', 'monarch', 'personal', 'party', 'institutions']
         if controls:
-            self.specification += ['gdppc', 'growth', 'resource', 'population'] 
+            self.specification += ['gdppc', 'growth', 'resource', 'population', 'openness', 'inequality', 'kaopen']
         if cs:
-            self.specification += [col for col in self.feature_names if 'region' in col] 
+            self.specification += [col for col in self.feature_names if 'region_' in col or 'cowcode_' in col] 
         if ts: 
-            self.specification += [col for col in self.feature_names if 'decade' in col]
+            self.specification += [col for col in self.feature_names if 'decade_' in col or 'period_' in col]
 
     def format_features(self, scale=False): 
         if not hasattr(self, 'specification'): 
