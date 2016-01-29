@@ -24,7 +24,7 @@ class DataFormatter(object):
         if 'year' in self.feature_names:
             self.years = self.data['year'].values 
 
-    def set_specification(self, lags=True, regimes=True, controls=True, cs=True, ts=True):
+    def set_specification(self, lags=True, regimes=True, controls=True, region=True, decade=True):
         self.specification = []
         if lags:
             self.specification += [col for col in self.feature_names if col.startswith(self.depvar) and 'lag' in col]
@@ -32,11 +32,11 @@ class DataFormatter(object):
             self.specification += ['duration', 'military', 'monarch', 'personal', 'party', 'institutions']
         if controls:
             self.specification += ['gdppc', 'growth', 'resource', 'population', 'openness', 'inequality', 'kaopen']
-        if cs:
-            self.specification += [col for col in self.feature_names if 'region_' in col or 'cowcode_' in col] 
-        if ts: 
-            self.specification += [col for col in self.feature_names if 'decade_' in col or 'period_' in col]
-
+        if region:
+            self.specification += [col for col in self.feature_names if 'region_' in col] 
+        if decade: 
+            self.specification += [col for col in self.feature_names if 'decade_' in col]
+    
     def format_features(self, scale=False): 
         if not hasattr(self, 'specification'): 
             raise Exception('Need to set specification before formatting features')     
@@ -74,7 +74,7 @@ class KFoldsClassifier(object):
         for train_index, test_index in folds:
             X_train, X_test, y_train, y_test = self.X[train_index], self.X[test_index], self.y[train_index], self.y[test_index]
             train = self.model.fit(X_train, y_train)
-            test_probs.append(train.predict(X_test))
+            test_probs.append(train.predict_proba(X_test)[:, 1])
             test_indices.append(test_index)
             test_data.append(y_test)
         test_indices = np.argsort(np.concatenate(test_indices))
