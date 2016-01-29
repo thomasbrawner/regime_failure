@@ -22,16 +22,18 @@ class DataFormatter(object):
         if 'year' in self.feature_names:
             self.years = self.data['year'].values 
 
-    def set_specification(self, lag, factors=None): 
-        if not isinstance(lag, list): 
-            lag = [lag]
-        regimes = ['duration', 'military', 'personal', 'party', 'institutions']
-        controls = ['gdppc', 'growth', 'resource', 'population'] 
-        dummies = []
-        if factors is not None: 
-            for factor in factors: 
-                dummies += [col for col in self.feature_names if factor in col]
-        self.specification = lag + regimes + controls + dummies 
+    def set_specification(self, lags=True, regimes=True, controls=True, cs=True, ts=True):
+        self.specification = []
+        if lags:
+            self.specification += [col for col in self.feature_names if 'lag' in col]
+        if regimes:
+            self.specification += ['duration', 'military', 'personal', 'party', 'institutions']
+        if controls:
+            self.specification += ['gdppc', 'growth', 'resource', 'population'] 
+        if cs:
+            self.specification += [col for col in self.feature_names if 'region' in col] 
+        if ts: 
+            self.specification += [col for col in self.feature_names if 'decade' in col]
 
     def format_features(self, scale=False): 
         if not hasattr(self, 'specification'): 
