@@ -54,13 +54,8 @@ class KFoldsClassifier(object):
         self.X = X
         self.y = y
     
-    def make_param_grid(self): 
-        param_combos = [x for x in apply(itertools.product, self.params.values())]
-        return [dict(zip(self.params.keys(), p)) for p in param_combos]
-
     def evaluate_model(self, metric):
-        self.param_grid = self.make_param_grid() 
-        search = GridSearchCV(self.model, self.param_grid, scoring=metric, n_jobs=-1, cv=self.k)
+        search = GridSearchCV(self.model, self.params, scoring=metric, n_jobs=-1, cv=self.k)
         search.fit(self.X, self.y)
         self.optimal_params = search.best_params_
     
@@ -75,7 +70,7 @@ class KFoldsClassifier(object):
     def predict(self):
         self.model.set_params(**self.optimal_params)
         folds = StratifiedKFold(self.y, n_folds=self.k)
-        test_indices, test_data, test_probs = []
+        test_indices, test_data, test_probs = [], [], []
         for train_index, test_index in folds:
             X_train, X_test, y_train, y_test = self.X[train_index], self.X[test_index], self.y[train_index], self.y[test_index]
             train = self.model.fit(X_train, y_train)
