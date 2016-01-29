@@ -7,6 +7,7 @@ import pandas as pd
 import progressbar
 import re 
 import seaborn as sns 
+from sklearn.grid_search import GridSearchCV
 from sklearn.linear_model import LogisticRegression 
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
 from sklearn.preprocessing import StandardScaler
@@ -39,6 +40,44 @@ class DataFormatter(object):
             self.X = StandardScaler().fit_transform(self.data[self.specification].values)
         else: 
             self.X = self.data[self.specification].values
+
+
+class KFoldsClassifier(object): 
+    def __init__(self, model, params, k, X, y):
+        self.model = model
+        self.params = params
+        self.k = k
+        self.X = X
+        self.y = y
+    
+    def make_param_grid(self): 
+        param_combos = [x for x in apply(itertools.product, self.params.values())]
+        return [dict(zip(self.params.keys(), p)) for p in param_combos]
+
+    def evaluate_model(self, metric):
+        self.param_grid = self.make_param_grid() 
+        search = GridSearchCV(self.model, self.param_grid, scoring=metric, n_jobs=-1, cv=10)
+        search.fit(self.X, self.y)
+        self.optimal_params = search.best_params_
+    
+    def bootstrap_estimates(self, n_boot=100): 
+        if not isinstance(self.model, LogisticRegression): 
+            raise Exception('Bootstrap model estimates only available for LogisticRegression')
+        self.model.set_params(**self.optimal_params)
+        ests = [np.hstack([self.model.fit(iX, iy).coef_.ravel(), self.model.fit(iX, iy).intercept_])
+                for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
+        self.boot_estimates = np.vstack(ests)
+
+    def predict(self):
+        self.model.set_params(**self.optimal_params)
+        data, probs = [], []
+        for yr in np.unique(self.years)[np.unique(self.years) > 1960]:
+            x_train, y_train, x_test, y_test = self.make_split(yr)
+            self.model.fit(x_train, y_train)
+            probs.append(self.model.predict_proba(x_test)[:, 1])
+            data.append(y_test)
+        self.y_test = np.concatenate(data)
+        self.probabilities = np.concatenate(probs)
 
 
 class SequentialFoldsClassifier(object): 
