@@ -7,6 +7,7 @@ import pandas as pd
 import progressbar
 import re 
 import seaborn as sns 
+from sklearn.cross_validation import StratifiedKFold
 from sklearn.grid_search import GridSearchCV
 from sklearn.linear_model import LogisticRegression 
 from sklearn.metrics import auc, precision_recall_curve, roc_auc_score
@@ -59,7 +60,7 @@ class KFoldsClassifier(object):
 
     def evaluate_model(self, metric):
         self.param_grid = self.make_param_grid() 
-        search = GridSearchCV(self.model, self.param_grid, scoring=metric, n_jobs=-1, cv=10)
+        search = GridSearchCV(self.model, self.param_grid, scoring=metric, n_jobs=-1, cv=self.k)
         search.fit(self.X, self.y)
         self.optimal_params = search.best_params_
     
@@ -73,14 +74,17 @@ class KFoldsClassifier(object):
 
     def predict(self):
         self.model.set_params(**self.optimal_params)
-        data, probs = [], []
-        for yr in np.unique(self.years)[np.unique(self.years) > 1960]:
-            x_train, y_train, x_test, y_test = self.make_split(yr)
-            self.model.fit(x_train, y_train)
-            probs.append(self.model.predict_proba(x_test)[:, 1])
-            data.append(y_test)
-        self.y_test = np.concatenate(data)
-        self.probabilities = np.concatenate(probs)
+        folds = StratifiedKFold(self.y, n_folds=self.k)
+        test_indices, test_data, test_probs = []
+        for train_index, test_index in folds:
+            X_train, X_test, y_train, y_test = self.X[train_index], self.X[test_index], self.y[train_index], self.y[test_index]
+            train = self.model.fit(X_train, y_train)
+            test_probs.append(train.predict(X_test))
+            test_indices.append(test_index)
+            test_data.append(y_test)
+        test_indices = np.argsort(np.concatenate(test_indices))
+        self.y_test = np.concatenate(test_data)[test_indices]
+        self.probabilities = np.concatenate(test_probs)[test_indices]
 
 
 class SequentialFoldsClassifier(object): 
