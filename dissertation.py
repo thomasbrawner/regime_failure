@@ -4,7 +4,6 @@ import itertools
 import matplotlib.pyplot as plt 
 import numpy as np 
 import pandas as pd 
-import progressbar
 import re 
 import seaborn as sns 
 from sklearn.cross_validation import StratifiedKFold
@@ -46,26 +45,24 @@ class DataFormatter(object):
             self.X = self.data[self.specification].values
 
 
-class KFoldsClassifier(object): 
-    def __init__(self, model, params, k, X, y):
+class KFoldsValidationPrediction(object): 
+    def __init__(self, model, params, k, X_train, y_train):
         self.model = model
         self.params = params
         self.k = k
-        self.X = X
-        self.y = y
+        self.X_train = X_train
+        self.y_train = y_train
     
     def evaluate_model(self, metric):
         search = GridSearchCV(self.model, self.params, scoring=metric, n_jobs=-1, cv=self.k)
-        search.fit(self.X, self.y)
+        search.fit(self.X_train, self.y_train)
         self.optimal_params = search.best_params_
+        self.cv_score = search.grid_scores_[1][1]
     
-    def bootstrap_estimates(self, n_boot=100): 
-        if not isinstance(self.model, LogisticRegression): 
-            raise Exception('Bootstrap model estimates only available for LogisticRegression')
+    def predict2(self, X_test): 
         self.model.set_params(**self.optimal_params)
-        ests = [np.hstack([self.model.fit(iX, iy).coef_.ravel(), self.model.fit(iX, iy).intercept_])
-                for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
-        self.boot_estimates = np.vstack(ests)
+        self.model.fit(self.X_train, self.y_train)
+        self.probabilities = self.model.predict_proba(X_test)[:, 1]
 
     def predict(self):
         self.model.set_params(**self.optimal_params)
@@ -139,41 +136,46 @@ class SequentialFoldsClassifier(object):
 
 
 class Melder(object):
-    def __init__(self, imputations, model, params):
+    def __init__(self, imputations, model, params, year_threshold):
         self.imputations = imputations
         self.y = self.imputations[0].y
         self.years = self.imputations[0].years
-        self.y_test = self.y[self.years > 1960]
+        self.year_threshold = year_threshold
+        self.train_mask = self.years <= self.year_threshold
+        self.test_mask = ((self.years > self.year_threshold) & (self.years <= self.year_threshold + 10))
+        self.y_test = self.y[self.test_mask]
         self.model = model 
         self.params = params
-        self.progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), 
-                                                         progressbar.Percentage(), ' '],
-                                                         maxval=len(self.imputations)) 
         
-    def evaluate_models(self): 
-        print('\nEvaluating models for {0} imputed data sets'.format(str(len(self.imputations))))
+    def evaluate_models(self, method='K-fold'): 
         out_models = []
-        self.progress.currval = 0
-        for df in self.progress(self.imputations):
-            m = SequentialFoldsClassifier(self.model, self.params, df.years, df.X, df.y)
-            m.evaluate_model() 
+        for df in self.imputations:
+            if method == 'K-fold':
+                X_train, y_train = df.X[self.train_mask], df.y[self.train_mask]
+                m = KFoldsValidationPrediction(self.model, self.params, 10, X_train, y_train)
+                m.evaluate_model('log_loss')
+            elif method == 'Sequential':
+                m = SequentialFoldsClassifier(self.model, self.params, df.years, df.X, df.y)
+                m.evaluate_model()
+            else:
+                raise ValueError('Method {} not supported. Must be "K-fold" or "Sequential"'.format(method))
             out_models.append(m)
         self.model_evaluations = out_models
 
     def meld_predictions(self): 
-        print('\nMelding predicted probabilities')
         out_preds = [] 
-        self.progress.currval = 0
-        for result in self.progress(self.model_evaluations):
-            result.predict()
+        out_scores = []
+        for result, df in zip(self.model_evaluations, self.imputations):
+            X_test = df.X[self.test_mask] 
+            result.predict2(X_test)
             out_preds.append(result.probabilities)
+            out_scores.append(result.cv_score)
         self.predictions = np.array(out_preds).mean(axis=0)
+        self.cv_scores = np.array(out_scores).mean(axis=0)
 
     def meld_estimates(self): 
-        print('\nConcatenating bootstrap estimates')
         out_ests = []
-        self.progress.currval = 0
-        for result in self.progress(self.model_evaluations):
+        for result in self.model_evaluations:
             result.bootstrap_estimates() 
             out_ests.append(result.boot_estimates)
         self.estimates = np.concatenate(out_ests)
@@ -182,40 +184,3 @@ class Melder(object):
         if not hasattr(self, 'estimates'): 
             raise Exception('No estimates to present. Run meld_estimates first')
         dp.boxplot_estimates(self.estimates, names, ignore, fname)
-
-
-
-def prepare_data(file_path, dep_var, lag_var, factors, scale=False): 
-    df = pd.read_table(file_path, sep=',', index_col=0)
-    df = DataFormatter(df, depvar=dep_var)
-    df.set_specification(lag=lag_var, factors=factors)
-    df.format_features(scale=scale)
-    return df
-
-def make_file_path(number): 
-    return 'clean_data/imputation_{0}.csv'.format(str(number))
-
-def specification_details(classifier, dep_var, lag_var): 
-    model = classifier.__class__.__name__
-    penalty = '' 
-    if isinstance(classifier, LogisticRegression): 
-        penalty = classifier.get_params()['penalty']
-    s = '\n' + model + ' ' + penalty + '\nDependent Variable: ' + dep_var + '\nLag Variable: ' + '_'.join(lag_var)
-    m = model + penalty
-    return s, m
-
-def run_specification(classifier, params, dep_var, lag_var, factors=None, scale=False, estimates=False):
-    data_list = [prepare_data(file_path=make_file_path(i), 
-                              dep_var=dep_var, 
-                              lag_var=lag_var,
-                              factors=factors, 
-                              scale=scale)
-                 for i in xrange(1, 11)]
-    spec, mod = specification_details(classifier, dep_var, lag_var)
-    print(spec)
-    melder = Melder(data_list, classifier, params)
-    melder.evaluate_models()
-    melder.meld_predictions()
-    if estimates:
-        melder.meld_estimates() 
-    return melder, mod
