@@ -85,62 +85,6 @@ class KFoldsValidationPrediction(object):
         self.boot_estimates = np.vstack(ests)
 
 
-class SequentialFoldsClassifier(object): 
-    def __init__(self, model, params, years, X, y): 
-        self.model = model
-        self.params = params
-        self.years = years
-        self.X = X
-        self.y = y
-
-    def make_split(self, year): 
-        train_mask = self.years < year 
-        train_x, train_y = self.X[train_mask], self.y[train_mask]
-        test_mask = self.years == year
-        test_x, test_y = self.X[test_mask], self.y[test_mask]
-        return train_x, train_y, test_x, test_y
-
-    def make_param_grid(self): 
-        param_combos = [x for x in apply(itertools.product, self.params.values())]
-        return [dict(zip(self.params.keys(), p)) for p in param_combos]
-
-    def evaluate_model(self, metric=roc_auc_score): 
-        self.scores = []
-        self.param_grid = self.make_param_grid()
-        for parameters in self.param_grid:
-            self.model.set_params(**parameters)
-            param_scores = []
-            for yr in np.unique(self.years)[np.unique(self.years) > 1960]: 
-                x_train, y_train, x_test, y_test = self.make_split(yr)
-                self.model.fit(x_train, y_train)
-                preds = self.model.predict_proba(x_test)[:, 1]
-                try:
-                    param_scores.append(metric(y_test, preds))
-                except: 
-                    pass 
-            self.scores.append(np.mean(param_scores))
-        self.optimal_params = self.param_grid[np.argmax(self.scores)]
-
-    def bootstrap_estimates(self, n_boot=100): 
-        if not isinstance(self.model, LogisticRegression): 
-            raise Exception('Bootstrap model estimates only available for LogisticRegression')
-        self.model.set_params(**self.optimal_params)
-        ests = [np.hstack([self.model.fit(iX, iy).coef_.ravel(), self.model.fit(iX, iy).intercept_])
-                for iX, iy in (resample(self.X, self.y) for _ in xrange(n_boot))] 
-        self.boot_estimates = np.vstack(ests)
-
-    def predict(self):
-        self.model.set_params(**self.optimal_params)
-        data, probs = [], []
-        for yr in np.unique(self.years)[np.unique(self.years) > 1960]:
-            x_train, y_train, x_test, y_test = self.make_split(yr)
-            self.model.fit(x_train, y_train)
-            probs.append(self.model.predict_proba(x_test)[:, 1])
-            data.append(y_test)
-        self.y_test = np.concatenate(data)
-        self.probabilities = np.concatenate(probs)
-
-
 class Melder(object):
     def __init__(self, imputations, model, params, year_threshold):
         self.imputations = imputations
@@ -153,18 +97,12 @@ class Melder(object):
         self.model = model 
         self.params = params
         
-    def evaluate_models(self, method='K-fold'): 
+    def evaluate_models(self): 
         out_models = []
         for df in self.imputations:
-            if method == 'K-fold':
-                X_train, y_train = df.X[self.train_mask], df.y[self.train_mask]
-                m = KFoldsValidationPrediction(self.model, self.params, 10, X_train, y_train)
-                m.evaluate_model('log_loss')
-            elif method == 'Sequential':
-                m = SequentialFoldsClassifier(self.model, self.params, df.years, df.X, df.y)
-                m.evaluate_model()
-            else:
-                raise ValueError('Method {} not supported. Must be "K-fold" or "Sequential"'.format(method))
+            X_train, y_train = df.X[self.train_mask], df.y[self.train_mask]
+            m = KFoldsValidationPrediction(self.model, self.params, 10, X_train, y_train)
+            m.evaluate_model('log_loss')
             out_models.append(m)
         self.model_evaluations = out_models
 
@@ -172,10 +110,10 @@ class Melder(object):
         out_preds = [] 
         out_scores = []
         for result, df in zip(self.model_evaluations, self.imputations):
-            X_test = df.X[self.test_mask]
             if in_sample:
                 result.predict_in_sample()
             else:
+                X_test = df.X[self.test_mask]
                 result.predict_test(X_test)
             out_preds.append(result.probabilities)
             out_scores.append(result.cv_score)
