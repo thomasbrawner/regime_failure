@@ -59,17 +59,17 @@ class KFoldsValidationPrediction(object):
         self.optimal_params = search.best_params_
         self.cv_score = search.grid_scores_[1][1]
     
-    def predict2(self, X_test): 
+    def predict_test(self, X_test): 
         self.model.set_params(**self.optimal_params)
         self.model.fit(self.X_train, self.y_train)
         self.probabilities = self.model.predict_proba(X_test)[:, 1]
 
-    def predict(self):
+    def predict_in_sample(self):
         self.model.set_params(**self.optimal_params)
-        folds = StratifiedKFold(self.y, n_folds=self.k)
+        folds = StratifiedKFold(self.y_train, n_folds=self.k)
         test_indices, test_data, test_probs = [], [], []
         for train_index, test_index in folds:
-            X_train, X_test, y_train, y_test = self.X[train_index], self.X[test_index], self.y[train_index], self.y[test_index]
+            X_train, X_test, y_train, y_test = self.X_train[train_index], self.X_train[test_index], self.y_train[train_index], self.y_train[test_index]
             train = self.model.fit(X_train, y_train)
             test_probs.append(train.predict_proba(X_test)[:, 1])
             test_indices.append(test_index)
@@ -77,6 +77,12 @@ class KFoldsValidationPrediction(object):
         test_indices = np.argsort(np.concatenate(test_indices))
         self.y_test = np.concatenate(test_data)[test_indices]
         self.probabilities = np.concatenate(test_probs)[test_indices]
+    
+    def bootstrap_estimates(self, n_boot=100): 
+        self.model.set_params(**self.optimal_params)
+        ests = [np.hstack([self.model.fit(iX, iy).coef_.ravel(), self.model.fit(iX, iy).intercept_])
+                for iX, iy in (resample(self.X_train, self.y_train) for _ in xrange(n_boot))] 
+        self.boot_estimates = np.vstack(ests)
 
 
 class SequentialFoldsClassifier(object): 
@@ -162,12 +168,15 @@ class Melder(object):
             out_models.append(m)
         self.model_evaluations = out_models
 
-    def meld_predictions(self): 
+    def meld_predictions(self, in_sample=True): 
         out_preds = [] 
         out_scores = []
         for result, df in zip(self.model_evaluations, self.imputations):
-            X_test = df.X[self.test_mask] 
-            result.predict2(X_test)
+            X_test = df.X[self.test_mask]
+            if in_sample:
+                result.predict_in_sample()
+            else:
+                result.predict_test(X_test)
             out_preds.append(result.probabilities)
             out_scores.append(result.cv_score)
         self.predictions = np.array(out_preds).mean(axis=0)
