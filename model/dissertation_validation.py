@@ -8,7 +8,6 @@ from pymongo import MongoClient
 from sklearn.ensemble import ExtraTreesClassifier, GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import SGDClassifier
 warnings.simplefilter('ignore')
-sns.set_style('whitegrid')
 progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), progressbar.Percentage(), ' ']) 
 
 
