@@ -10,11 +10,13 @@ progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), prog
 
 
 def _generate_sample_indices(random_state, n_samples):
+    '''Samples in bag'''
     random_instance = check_random_state(random_state)
     sample_indices = random_instance.randint(0, n_samples, n_samples)
     return sample_indices
 
 def _generate_unsampled_indices(random_state, n_samples):
+    '''Samples out of bag'''
     sample_indices = _generate_sample_indices(random_state, n_samples)
     sample_counts = bincount(sample_indices, minlength=n_samples)
     unsampled_mask = sample_counts == 0
@@ -66,28 +68,38 @@ class OOBValidation(object):
         param_combos = [x for x in apply(product, self.param_dict.values())]
         return [dict(zip(self.param_dict.keys(), p)) for p in param_combos]
 
-    def fit(self, X, y):
+    def fit(self, X, y, metric, minimize=True):
+        '''Grid search over hyperparameters, evaluation with given metric in OOB samples'''
         self.oob_scores = []
         progress.currval = 0
         for params in progress(self.param_grid):
             self.model.set_params(**params)
             self.model.fit(X, y)
-            self.oob_scores.append(self.model.oob_score_)
-        best_idx = np.argmax(np.array(self.oob_scores))
+            oob = OOBLoss(self.model, X, y)
+            self.oob_scores.append(oob.oob_loss(metric))
+        best_idx = np.argmin(np.array(self.oob_scores)) if minimize else np.argmax(np.array(self.oob_scores))
         self.best_params = self.param_grid[best_idx]
         self.best_model = self.model.set_params(**self.best_params)
 
     def predict(self, X):
+        '''Predicted classes and probabilities for features array X using best model'''
         self.predicted_probabilities = self.best_model.predict_proba(X)[:, 1]
         self.predicted_values = self.best_model.predict(X)
 
 
 if __name__ == '__main__': 
     X, y = make_classification(n_samples=500)
+
+    # demo OOBLoss for an ensemble classifier
     forest = RandomForestClassifier(n_estimators=100, n_jobs=-1)
     forest.fit(X, y)
-    #oob_idx = oob_index_array(forest.estimators_, X)
-    #samps = np.array([oob_predict_proba(forest.estimators_, i, oob_idx, X) for i in xrange(X.shape[0])])
-    #loss = oob_loss(forest.estimators_, oob_idx, X, y, log_loss)
     oob = OOBLoss(forest, X, y)
     loss = oob.oob_loss(log_loss)
+
+    # demo grid search over hyperparameters using OOB validation 
+    params = {'max_features' : ['sqrt', 0.5],
+              'min_samples_split' : [6, 12],
+              'min_samples_leaf' : [3, 7]}
+    validator = OOBValidation(forest, params)
+    validator.fit(X, y, metric=log_loss)
+    validator.predict(X)
