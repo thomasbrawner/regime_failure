@@ -3,6 +3,7 @@ import progressbar
 from itertools import product
 from sklearn.datasets import make_classification
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import log_loss
 from sklearn.utils import check_random_state
 from sklearn.utils.fixes import bincount
 progress = progressbar.ProgressBar(widgets=[progressbar.Bar('*', '[', ']'), progressbar.Percentage(), ' '])
@@ -21,11 +22,27 @@ def _generate_unsampled_indices(random_state, n_samples):
     unsampled_indices = indices_range[unsampled_mask]
     return unsampled_indices
 
-def sample_is_oob(estimators, X):
-    n_samples = X.shape[0]
-    samples = np.arange(n_samples)
-    return np.array([np.in1d(samples, _generate_unsampled_indices(tree.random_state, n_samples)) for tree in estimators]).T
 
+class OOBLoss(object): 
+    def __init__(self, classifier, X, y):
+        self.classifier = classifier
+        self.X = X
+        self.y = y
+        self.oob_index_array = self._generate_oob_index_array()
+
+    def _generate_oob_index_array(self):
+        n_samples = self.X.shape[0]
+        samples = np.arange(n_samples)
+        return np.array([np.in1d(samples, _generate_unsampled_indices(estimator.random_state, n_samples)) for estimator in self.classifier.estimators_]).T
+
+    def _oob_predict_proba(self, sample_idx):
+        oob_estimators = np.array(self.classifier.estimators_)[self.oob_index_array[sample_idx]]
+        sample = self.X[sample_idx].reshape(1, -1)
+        return np.array([estimator.predict_proba(sample)[:, 1] for estimator in oob_estimators]).mean() 
+
+    def oob_loss(self, metric): 
+        probabilities = np.array([self._oob_predict_proba(i) for i in xrange(self.X.shape[0])])
+        return metric(self.y, probabilities) 
 
 
 class OOBValidation(object):
@@ -65,4 +82,8 @@ if __name__ == '__main__':
     X, y = make_classification(n_samples=500)
     forest = RandomForestClassifier(n_estimators=100, n_jobs=-1)
     forest.fit(X, y)
-    oob_idx = sample_is_oob(forest.estimators_, X)
+    #oob_idx = oob_index_array(forest.estimators_, X)
+    #samps = np.array([oob_predict_proba(forest.estimators_, i, oob_idx, X) for i in xrange(X.shape[0])])
+    #loss = oob_loss(forest.estimators_, oob_idx, X, y, log_loss)
+    oob = OOBLoss(forest, X, y)
+    loss = oob.oob_loss(log_loss)
