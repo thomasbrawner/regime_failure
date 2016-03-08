@@ -24,6 +24,7 @@ def _generate_unsampled_indices(random_state, n_samples):
 
 
 class OOBLoss(object): 
+    '''OOB error for provided ensemble classifier'''
     def __init__(self, classifier, X, y):
         self.classifier = classifier
         self.X = X
@@ -31,16 +32,19 @@ class OOBLoss(object):
         self.oob_index_array = self._generate_oob_index_array()
 
     def _generate_oob_index_array(self):
+        '''OOB membership for each estimator, return array([n_samples, n_estimators])'''
         n_samples = self.X.shape[0]
         samples = np.arange(n_samples)
         return np.array([np.in1d(samples, _generate_unsampled_indices(estimator.random_state, n_samples)) for estimator in self.classifier.estimators_]).T
 
     def _oob_predict_proba(self, sample_idx):
+        '''OOB predicted probability for a single sample'''
         oob_estimators = np.array(self.classifier.estimators_)[self.oob_index_array[sample_idx]]
         sample = self.X[sample_idx].reshape(1, -1)
         return np.array([estimator.predict_proba(sample)[:, 1] for estimator in oob_estimators]).mean() 
 
-    def oob_loss(self, metric): 
+    def oob_loss(self, metric):
+        '''Evaluate OOB predicted probability for all samples and return loss for given metric'''
         probabilities = np.array([self._oob_predict_proba(i) for i in xrange(self.X.shape[0])])
         return metric(self.y, probabilities) 
 
