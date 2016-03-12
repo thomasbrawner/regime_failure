@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import progressbar
 from itertools import product
@@ -25,7 +26,7 @@ def _generate_unsampled_indices(random_state, n_samples):
     return unsampled_indices
 
 
-class OOBLoss(object): 
+class OOBPerformance(object): 
     '''OOB error for provided ensemble classifier'''
     def __init__(self, classifier, X, y):
         self.classifier = classifier
@@ -45,10 +46,30 @@ class OOBLoss(object):
         sample = self.X[sample_idx].reshape(1, -1)
         return np.array([estimator.predict_proba(sample)[:, 1] for estimator in oob_estimators]).mean() 
 
-    def oob_loss(self, metric):
+    def oob_score(self, metric):
         '''Evaluate OOB predicted probability for all samples and return loss for given metric'''
         probabilities = np.array([self._oob_predict_proba(i) for i in xrange(self.X.shape[0])])
         return metric(self.y, probabilities) 
+
+    def _oob_permute_predict(self, estimator_idx, metric):
+        '''Evaluate change in metric randomly permuting each feature for the estimator'''
+        estimator = self.classifier.estimators_[estimator_idx]
+        oob_samples_mask = self.oob_index_array[:, estimator_idx]
+        oob_samples = self.X[oob_samples_mask]
+        oob_y_true = self.y[oob_samples_mask]
+        oob_probs_baseline = estimator.predict_proba(oob_samples)[:, 1]
+        oob_error_baseline = metric(oob_y_true, oob_probs_baseline)
+        oob_errors_permutation = []
+        for col in xrange(self.X.shape[1]): 
+            oob_samples_c = oob_samples.copy() 
+            np.random.shuffle(oob_samples_c[:, col])
+            oob_probs_permutation = estimator.predict_proba(oob_samples_c)[:, 1]
+            oob_errors_permutation.append(metric(oob_y_true, oob_probs_permutation))
+        return np.array(oob_errors_permutation) - oob_error_baseline
+
+    def permutation_importance(self, metric): 
+        '''Average change in metric due to random permutation of features for each estimator'''
+        return np.vstack([self._oob_permute_predict(i, metric) for i in xrange(len(self.classifier.estimators_))]).mean(axis=0)
 
 
 class OOBValidation(object):
@@ -75,8 +96,8 @@ class OOBValidation(object):
         for params in progress(self.param_grid):
             self.model.set_params(**params)
             self.model.fit(X, y)
-            oob = OOBLoss(self.model, X, y)
-            self.oob_scores.append(oob.oob_loss(metric))
+            oob = OOBPerformance(self.model, X, y)
+            self.oob_scores.append(oob.oob_score(metric))
         best_idx = np.argmin(np.array(self.oob_scores)) if minimize else np.argmax(np.array(self.oob_scores))
         self.best_params = self.param_grid[best_idx]
         self.best_model = self.model.set_params(**self.best_params)
@@ -93,8 +114,8 @@ if __name__ == '__main__':
     # demo OOBLoss for an ensemble classifier
     forest = RandomForestClassifier(n_estimators=100, n_jobs=-1)
     forest.fit(X, y)
-    oob = OOBLoss(forest, X, y)
-    loss = oob.oob_loss(log_loss)
+    oob = OOBPerformance(forest, X, y)
+    loss = oob.oob_score(log_loss)
 
     # demo grid search over hyperparameters using OOB validation 
     params = {'max_features' : ['sqrt', 0.5],
@@ -103,3 +124,13 @@ if __name__ == '__main__':
     validator = OOBValidation(forest, params)
     validator.fit(X, y, metric=log_loss)
     validator.predict(X)
+
+    # demo permutation importance
+    model = validator.best_model
+    oob_best = OOBPerformance(model, X, y)
+    importance = oob_best.permutation_importance(log_loss)
+
+    # compare permutation importance to scikit-learn feature importance
+    model.fit(X, y)
+    importance2 = model.feature_importances_
+    print(np.corrcoef(importance, importance2))
