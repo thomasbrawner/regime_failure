@@ -52,6 +52,7 @@ class OOBPerformance(object):
         return metric(self.y, probabilities) 
 
     def _oob_permute_predict(self, estimator_idx, metric):
+        '''Evaluate change in metric randomly permuting each feature for the estimator'''
         estimator = self.classifier.estimators_[estimator_idx]
         oob_samples_mask = self.oob_index_array[:, estimator_idx]
         oob_samples = self.X[oob_samples_mask]
@@ -67,6 +68,7 @@ class OOBPerformance(object):
         return np.array(oob_errors_permutation) - oob_error_baseline
 
     def permutation_importance(self, metric): 
+        '''Average change in metric due to random permutation of features for each estimator'''
         return np.vstack([self._oob_permute_predict(i, metric) for i in xrange(len(self.classifier.estimators_))]).mean(axis=0)
 
 
