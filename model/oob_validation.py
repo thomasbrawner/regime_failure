@@ -96,16 +96,56 @@ class OOBValidation(object):
         for params in progress(self.param_grid):
             self.model.set_params(**params)
             self.model.fit(X, y)
-            oob = OOBPerformance(self.model, X, y)
+            oob = OOBPerformance(self.model, X, y) 
             self.oob_scores.append(oob.oob_score(metric))
         best_idx = np.argmin(np.array(self.oob_scores)) if minimize else np.argmax(np.array(self.oob_scores))
         self.best_params = self.param_grid[best_idx]
         self.best_model = self.model.set_params(**self.best_params)
+        self.oob_score_ = self.oob_scores[best_idx]
 
     def predict(self, X):
         '''Predicted classes and probabilities for features array X using best model'''
         self.predicted_probabilities = self.best_model.predict_proba(X)[:, 1]
         self.predicted_values = self.best_model.predict(X)
+
+
+class OOBMelder(object): 
+    def __init__(self, imputations, model, params, year_threshold):
+        self.imputations = imputations
+        self.y = self.imputations[0].y
+        self.years = self.imputations[0].years
+        self.year_threshold = year_threshold
+        self.train_mask = self.years <= self.year_threshold
+        self.test_mask = ((self.years > self.year_threshold) & (self.years <= self.year_threshold + 10))
+        self.y_test = self.y[self.test_mask]
+        self.model = model 
+        self.params = params
+
+    def validate_models(self): 
+        out_models = []
+        out_scores = []
+        for df in self.imputations:
+            X_train, y_train = df.X[self.train_mask], df.y[self.train_mask]
+            validator = OOBValidation(self.model, self.params)
+            validator.fit(X_train, y_train, metric=log_loss)
+            out_models.append(validator.best_model)
+            out_scores.append(validator.oob_score_)
+        self.best_models = out_models
+        self.scores = np.array(out_scores)
+
+    def meld_predictions(self, train=True): 
+        out_preds = [] 
+        for result, df in zip(self.best_models, self.imputations):
+            if train:
+                out_preds.append(result.predict_proba(df.X[self.train_mask])[:, 1])
+            else:
+                out_preds.append(result.predict_proba(df.X[self.test_mask])[:, 1])
+        self.predictions = np.array(out_preds).mean(axis=0)
+
+    def meld_feature_importances(self, metric=log_loss): 
+        oobs = [OOBPerformance(model, df.X[self.train_mask], df.y[self.train_mask]) for model, df in zip(self.best_models, self.imputations)]
+        self.feature_importances_array = np.array([oob.permutation_importance(metric) for oob in oobs]).T
+        self.feature_importances = self.feature_importances_array.mean(axis=1)
 
 
 if __name__ == '__main__': 
